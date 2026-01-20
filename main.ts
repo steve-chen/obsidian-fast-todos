@@ -200,10 +200,15 @@ class FastTodosRenderer extends MarkdownRenderChild {
         if (!this.containerEl) return;
         const tasks = await this.getTasks();
         const config = this.parseConfig(this.source);
+        const today = moment().format('YYYY-MM-DD');
 
         const filteredTasks = tasks.filter(t => {
-            // If it's done AND not on a countdown grace period, hide it
+            // Handle filters
             if (config.notDone && t.completed && !this.activeCountdowns.has(`${t.path}:${t.line}`)) return false;
+            if (config.isDone && !t.completed) return false;
+            if (config.doneToday) {
+                if (!t.completed || t.completedDate !== today) return false;
+            }
 
             if (config.paths.length > 0) {
                 const matchesPath = config.paths.some(p => t.path.toLowerCase().includes(p.toLowerCase()));
@@ -245,7 +250,7 @@ class FastTodosRenderer extends MarkdownRenderChild {
 
     async getTasks(): Promise<FastTask[]> {
         const now = Date.now();
-        if (FastTodosRenderer.taskCache.length > 0 && (now - FastTodosRenderer.lastScanTime < 5000)) {
+        if (FastTodosRenderer.taskCache.length > 0 && (now - FastTodosRenderer.lastScanTime < 10000)) {
             return FastTodosRenderer.taskCache;
         }
 
@@ -298,6 +303,8 @@ class FastTodosRenderer extends MarkdownRenderChild {
         const lines = source.split('\n').map(l => l.trim().toLowerCase());
         const config = {
             notDone: lines.some(l => l === 'not done' || l.startsWith('not done')),
+            isDone: lines.some(l => l === 'done' || l === 'is done'),
+            doneToday: lines.some(l => l === 'done today'),
             paths: [] as string[],
             groupBy: ''
         };
