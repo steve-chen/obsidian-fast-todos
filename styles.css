@@ -1,0 +1,292 @@
+.fast-todos-container {
+    padding: 10px 0;
+}
+
+.fast-todos-group {
+    margin-bottom: 12px;
+}
+
+.fast-todos-file-link {
+    font-weight: 600;
+    color: var(--text-accent);
+    text-decoration: none;
+    font-size: 0.9em;
+    display: block;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding-bottom: 2px;
+}
+
+.fast-todos-file-link:hover {
+    text-decoration: underline;
+}
+
+.fast-todos-item {
+    display: flex;
+    align-items: center;
+    padding: 2px 0;
+    gap: 10px;
+}
+
+/* Circular Checkbox styling */
+.fast-todos-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--text-faint);
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.fast-todos-checkbox:checked {
+    background-color: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+}
+
+.fast-todos-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    color: white;
+    font-size: 11px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.fast-todos-text {
+    font-size: 0.95em;
+    color: var(--text-normal);
+}
+
+.fast-todos-tag {
+    color: var(--text-muted);
+    background-color: var(--background-secondary-alt);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 0.85em;
+    margin: 0 4px;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.fast-todos-completed {
+    text-decoration: line-through;
+    color: var(--text-faint);
+}
+
+.fast-todos-backlink {
+    font-size: 0.8em;
+    color: var(--text-muted);
+}
+
+.fast-todos-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    opacity: 0.1;
+    transition: opacity 0.2s ease;
+}
+
+.fast-todos-item:hover .fast-todos-actions {
+    opacity: 1;
+}
+
+.fast-todos-action-btn {
+    cursor: pointer;
+    font-size: 0.65em;
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.fast-todos-action-btn:hover {
+    color: var(--text-accent);
+    border-color: var(--text-accent);
+    background-color: var(--background-secondary);
+}
+
+.fast-todos-due,
+.fast-todos-created,
+.fast-todos-completed-date {
+    font-size: 0.85em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.fast-todos-due {
+    background-color: rgba(var(--interactive-accent-rgb), 0.1);
+    color: var(--interactive-accent);
+}
+
+.fast-todos-created {
+    background-color: var(--background-secondary-alt);
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.fast-todos-completed-date {
+    background-color: rgba(107, 203, 119, 0.1);
+    color: #6bcb77;
+}
+
+.fast-todos-countdown {
+    background-color: rgba(var(--interactive-accent-rgb), 0.1);
+    color: var(--interactive-accent);
+    font-size: 0.75em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    margin-left: 8px;
+    font-variant-numeric: tabular-nums;
+    animation: fast-pulse 1s infinite alternate;
+}
+
+@keyframes fast-pulse {
+    from {
+        opacity: 0.6;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.beauty-task-suggestion {
+    padding: 4px 8px;
+    font-weight: 500;
+}
+
+.fast-todos-backlink {
+    color: var(--text-muted);
+    font-size: 0.8em;
+    margin-left: 8px;
+}
+
+.fast-todos-link {
+    color: var(--interactive-accent) !important;
+    text-decoration: none !important;
+    cursor: pointer;
+    font-weight: 500;
+    opacity: 1 !important;
+    /* Force full brightness */
+}
+
+.fast-todos-link:hover {
+    text-decoration: underline !important;
+}
+
+.fast-todos-completed+.fast-todos-backlink .fast-todos-link {
+    color: var(--text-faint) !important;
+    opacity: 0.4 !important;
+    text-decoration: none !important;
+}
+
+.fast-todos-empty {
+    color: var(--text-faint);
+    font-style: italic;
+    padding: 10px;
+}
+
+/* Modal Styling - Scoped to Beauty Tasks */
+.fast-todos-modal .modal {
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    max-width: 600px !important;
+    width: 90% !important;
+}
+
+.fast-todos-modal h2 {
+    font-size: 1.4em;
+    font-weight: 700;
+    margin-bottom: 24px;
+    color: var(--text-normal);
+    text-transform: none;
+    letter-spacing: -0.02em;
+}
+
+/* Description Field Layout */
+.fast-todos-modal .fast-modal-description {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.fast-todos-modal .fast-modal-label {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.fast-todos-modal .fast-modal-description textarea {
+    width: 100%;
+    min-height: 100px;
+    background-color: var(--background-secondary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 1.1em;
+    line-height: 1.4;
+    resize: vertical;
+}
+
+.fast-todos-modal .fast-modal-description textarea:focus {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+/* Standard Settings Styling within our modal */
+.fast-todos-modal .setting-item {
+    padding: 16px 0;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.fast-todos-modal .setting-item-info {
+    flex: 1;
+}
+
+.fast-todos-modal .setting-item-name {
+    font-weight: 500;
+    color: var(--text-normal);
+}
+
+.fast-todos-modal input[type="date"] {
+    background-color: var(--background-secondary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: var(--text-normal);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.5);
+    cursor: pointer;
+}
+
+.fast-todos-modal .btn-cta {
+    background-color: var(--interactive-accent);
+    color: white;
+    font-weight: 600;
+    padding: 10px 32px;
+    border-radius: 8px;
+    margin-top: 12px;
+}
+
+.fast-todos-modal .btn-cta:hover {
+    transform: translateY(-1px);
+}
