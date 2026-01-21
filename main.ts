@@ -202,24 +202,9 @@ class FastTodosRenderer extends MarkdownRenderChild {
         const config = this.parseConfig(this.source);
         const today = moment().format('YYYY-MM-DD');
 
+        // Apply all filters (Lines are AND-ed together)
         let filteredTasks = tasks.filter(t => {
-            // Handle filters
-            if (config.notDone && t.completed && !this.activeCountdowns.has(`${t.path}:${t.line}`)) return false;
-            if (config.isDone && !t.completed) return false;
-            if (config.doneToday) {
-                if (!t.completed || t.completedDate !== today) return false;
-            }
-
-            if (config.paths.length > 0) {
-                const matchesPath = config.paths.some(p => t.path.toLowerCase().includes(p.toLowerCase()));
-                if (!matchesPath) return false;
-            }
-
-            if (config.tags.length > 0) {
-                const matchesTag = config.tags.some(tag => t.text.toLowerCase().includes(tag.toLowerCase()));
-                if (!matchesTag) return false;
-            }
-            return true;
+            return config.filters.every(filter => filter(t));
         });
 
         // Handle Sorting
@@ -319,38 +304,67 @@ class FastTodosRenderer extends MarkdownRenderChild {
         };
     }
 
+    evaluateAtom(atom: string, task: FastTask): boolean {
+        const low = atom.toLowerCase().trim();
+        const today = moment().format('YYYY-MM-DD');
+
+        if (low === 'not done') {
+            return !task.completed || this.activeCountdowns.has(`${task.path}:${task.line}`);
+        }
+        if (low === 'done' || low === 'is done') {
+            return task.completed;
+        }
+        if (low === 'done today') {
+            return task.completed && task.completedDate === today;
+        }
+        if (low.startsWith('path includes ')) {
+            const p = low.replace('path includes ', '').trim();
+            return task.path.toLowerCase().includes(p);
+        }
+        if (low.startsWith('tag includes ')) {
+            const t = low.replace('tag includes ', '').trim();
+            return task.text.toLowerCase().includes(t);
+        }
+        return true;
+    }
+
     parseConfig(source: string) {
-        const lines = source.split('\n').map(l => l.trim().toLowerCase());
+        const lines = source.split('\n').map(l => l.trim()).filter(l => l.length > 0);
         const config = {
-            notDone: lines.some(l => l === 'not done' || l.startsWith('not done')),
-            isDone: lines.some(l => l === 'done' || l === 'is done'),
-            doneToday: lines.some(l => l === 'done today'),
-            paths: [] as string[],
-            tags: [] as string[],
+            filters: [] as ((t: FastTask) => boolean)[],
             limit: undefined as number | undefined,
             groupBy: '',
             sortBy: ''
         };
 
         for (const line of lines) {
-            if (line.includes('path includes')) {
-                const p = line.replace('path includes', '').trim();
-                if (p) config.paths.push(p);
-            }
-            if (line.includes('tag includes')) {
-                const t = line.replace('tag includes', '').trim();
-                if (t) config.tags.push(t);
-            }
-            if (line.startsWith('limit')) {
-                const num = parseInt(line.replace('limit', '').trim());
+            const lowLine = line.toLowerCase();
+
+            // Meta configurations
+            if (lowLine.startsWith('limit')) {
+                const num = parseInt(lowLine.replace('limit', '').trim());
                 if (!isNaN(num)) config.limit = num;
+                continue;
             }
-            if (line.startsWith('group by')) {
-                config.groupBy = line.replace('group by', '').trim();
+            if (lowLine.startsWith('group by')) {
+                config.groupBy = lowLine.replace('group by', '').trim();
+                continue;
             }
-            if (line.startsWith('sort by')) {
-                config.sortBy = line.replace('sort by', '').trim();
+            if (lowLine.startsWith('sort by')) {
+                config.sortBy = lowLine.replace('sort by', '').trim();
+                continue;
             }
+
+            // Boolean Logic Parser (Implicit AND between lines, explicit AND/OR on line)
+            // Split by OR first (OR has lower precedence than AND)
+            const orParts = line.split(/\s+OR\s+/);
+            config.filters.push((task: FastTask) => {
+                return orParts.some(orPart => {
+                    // Split each OR segment by AND
+                    const andParts = orPart.split(/\s+AND\s+/);
+                    return andParts.every(andPart => this.evaluateAtom(andPart, task));
+                });
+            });
         }
         return config;
     }
