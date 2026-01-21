@@ -7,6 +7,7 @@ interface FastTask {
     path: string;
     completedDate?: string;
     cleanText: string;
+    priority: 'high' | 'normal' | 'low';
 }
 
 export default class FastTodos extends Plugin {
@@ -210,6 +211,10 @@ class FastTodosRenderer extends MarkdownRenderChild {
         // Handle Sorting
         if (config.sortBy) {
             filteredTasks.sort((a, b) => {
+                if (config.sortBy === 'priority') {
+                    const weight = { high: 3, normal: 2, low: 1 };
+                    return weight[b.priority] - weight[a.priority];
+                }
                 if (config.sortBy === 'path') return a.path.localeCompare(b.path);
                 if (config.sortBy === 'description' || config.sortBy === 'alphabet') return a.cleanText.localeCompare(b.cleanText);
                 if (config.sortBy === 'date') return (a.completedDate || "").localeCompare(b.completedDate || "");
@@ -292,6 +297,8 @@ class FastTodosRenderer extends MarkdownRenderChild {
         const rawContent = taskMatch ? taskMatch[2] : line;
 
         const completedMatch = rawContent.match(/\[(completed|completion):+\s*([^\]]+)\]/i);
+        const priorityMatch = rawContent.match(/\[priority:+\s*(high|normal|low)\]/i);
+
         let displayDescription = rawContent.replace(/\[(created|completed|completion|due|priority):+[^\]]+\]/gi, '').trim();
 
         return {
@@ -300,7 +307,8 @@ class FastTodosRenderer extends MarkdownRenderChild {
             completed: isCompleted,
             line: lineNum,
             path,
-            completedDate: completedMatch ? completedMatch[2] : undefined
+            completedDate: completedMatch ? completedMatch[2] : undefined,
+            priority: priorityMatch ? priorityMatch[1].toLowerCase() as any : 'normal'
         };
     }
 
@@ -324,6 +332,14 @@ class FastTodosRenderer extends MarkdownRenderChild {
         if (low.startsWith('tag includes ')) {
             const t = low.replace('tag includes ', '').trim();
             return task.text.toLowerCase().includes(t);
+        }
+        if (low.startsWith('priority is ')) {
+            const p = low.replace('priority is ', '').trim();
+            return task.priority === p;
+        }
+        if (low.startsWith('priority is not ')) {
+            const p = low.replace('priority is not ', '').trim();
+            return task.priority !== p;
         }
         return true;
     }
@@ -428,6 +444,12 @@ class FastTodosRenderer extends MarkdownRenderChild {
         for (const part of parts) {
             if (part && part.startsWith('#')) textSpan.createSpan({ cls: 'fast-todos-tag', text: part });
             else textSpan.appendText(part);
+        }
+
+        if (task.priority !== 'normal') {
+            const pClass = `fast-todos-priority-${task.priority}`;
+            const pLabel = task.priority === 'high' ? 'HIGH' : 'LOW';
+            item.createSpan({ cls: `fast-todos-priority-badge ${pClass}`, text: pLabel });
         }
 
         checkbox.onclick = async (e) => {

@@ -287,6 +287,29 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     margin-top: 12px;
 }
 
+.fast-todos-priority-badge {
+    font-size: 0.65em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.fast-todos-priority-high {
+    background-color: rgba(255, 87, 87, 0.15);
+    color: #ff5757;
+    border: 1px solid rgba(255, 87, 87, 0.3);
+}
+
+.fast-todos-priority-low {
+    background-color: rgba(0, 150, 255, 0.1);
+    color: #0096ff;
+    border: 1px solid rgba(0, 150, 255, 0.2);
+}
+
 .fast-todos-modal .btn-cta:hover {
     transform: translateY(-1px);
 }
