@@ -1,10 +1,10 @@
 {
     "id": "fast-todos",
     "name": "Fast Todos",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "minAppVersion": "1.4.0",
     "description": "A lightweight, beautiful task manager that uses native Obsidian speed.",
-    "author": "Antigravity",
+    "author": "Steve Chen & Antigravity",
     "authorUrl": "https://github.com/steve-chen",
     "isDesktopOnly": false
 }
