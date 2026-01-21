@@ -202,7 +202,7 @@ class FastTodosRenderer extends MarkdownRenderChild {
         const config = this.parseConfig(this.source);
         const today = moment().format('YYYY-MM-DD');
 
-        const filteredTasks = tasks.filter(t => {
+        let filteredTasks = tasks.filter(t => {
             // Handle filters
             if (config.notDone && t.completed && !this.activeCountdowns.has(`${t.path}:${t.line}`)) return false;
             if (config.isDone && !t.completed) return false;
@@ -214,8 +214,28 @@ class FastTodosRenderer extends MarkdownRenderChild {
                 const matchesPath = config.paths.some(p => t.path.toLowerCase().includes(p.toLowerCase()));
                 if (!matchesPath) return false;
             }
+
+            if (config.tags.length > 0) {
+                const matchesTag = config.tags.some(tag => t.text.toLowerCase().includes(tag.toLowerCase()));
+                if (!matchesTag) return false;
+            }
             return true;
         });
+
+        // Handle Sorting
+        if (config.sortBy) {
+            filteredTasks.sort((a, b) => {
+                if (config.sortBy === 'path') return a.path.localeCompare(b.path);
+                if (config.sortBy === 'description' || config.sortBy === 'alphabet') return a.cleanText.localeCompare(b.cleanText);
+                if (config.sortBy === 'date') return (a.completedDate || "").localeCompare(b.completedDate || "");
+                return 0;
+            });
+        }
+
+        // Handle Limit
+        if (config.limit !== undefined) {
+            filteredTasks = filteredTasks.slice(0, config.limit);
+        }
 
         const currentHash = JSON.stringify(filteredTasks.map(t => ({ p: t.path, l: t.line, c: t.completed, t: t.cleanText })));
         if (currentHash === this.lastRenderedHash) return;
@@ -306,21 +326,30 @@ class FastTodosRenderer extends MarkdownRenderChild {
             isDone: lines.some(l => l === 'done' || l === 'is done'),
             doneToday: lines.some(l => l === 'done today'),
             paths: [] as string[],
-            groupBy: ''
+            tags: [] as string[],
+            limit: undefined as number | undefined,
+            groupBy: '',
+            sortBy: ''
         };
 
         for (const line of lines) {
             if (line.includes('path includes')) {
-                const matches = line.match(/path includes\s+([^\s\)\n]+)/gi);
-                if (matches) {
-                    matches.forEach(m => {
-                        const p = m.replace(/path includes\s+/i, '').trim();
-                        if (p) config.paths.push(p);
-                    });
-                }
+                const p = line.replace('path includes', '').trim();
+                if (p) config.paths.push(p);
+            }
+            if (line.includes('tag includes')) {
+                const t = line.replace('tag includes', '').trim();
+                if (t) config.tags.push(t);
+            }
+            if (line.startsWith('limit')) {
+                const num = parseInt(line.replace('limit', '').trim());
+                if (!isNaN(num)) config.limit = num;
             }
             if (line.startsWith('group by')) {
                 config.groupBy = line.replace('group by', '').trim();
+            }
+            if (line.startsWith('sort by')) {
+                config.sortBy = line.replace('sort by', '').trim();
             }
         }
         return config;
