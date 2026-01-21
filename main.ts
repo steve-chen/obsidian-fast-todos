@@ -92,13 +92,14 @@ export default class FastTodos extends Plugin {
 }
 
 class TaskEditModal extends Modal {
-    result: { description: string, completed: boolean };
+    result: { description: string, completed: boolean, priority: 'high' | 'normal' | 'low' };
 
-    constructor(app: App, public task: FastTask, public onSubmit: (result: { description: string, completed: boolean }) => void) {
+    constructor(app: App, public task: FastTask, public onSubmit: (result: { description: string, completed: boolean, priority: 'high' | 'normal' | 'low' }) => void) {
         super(app);
         this.result = {
             description: task.cleanText === "(No Description)" ? "" : task.cleanText,
-            completed: task.completed
+            completed: task.completed,
+            priority: task.priority
         };
     }
 
@@ -116,6 +117,15 @@ class TaskEditModal extends Modal {
         new Setting(contentEl)
             .setName('Completed Status')
             .addToggle(toggle => toggle.setValue(this.result.completed).onChange(value => this.result.completed = value));
+
+        new Setting(contentEl)
+            .setName('Priority')
+            .addDropdown(dropdown => dropdown
+                .addOption('high', 'High')
+                .addOption('normal', 'Normal')
+                .addOption('low', 'Low')
+                .setValue(this.result.priority)
+                .onChange(value => this.result.priority = value as any));
 
         new Setting(contentEl)
             .addButton(btn => btn.setButtonText('Save').setCta().onClick(() => {
@@ -173,13 +183,25 @@ class FastTodosRenderer extends MarkdownRenderChild {
 
         this.registerEvent(this.app.metadataCache.on('changed', (file) => {
             if (this.activeCountdowns.size > 0) return;
-            if (Date.now() - this.plugin.lastInternalUpdate < 1500) return;
+
+            // If we just updated internally, wait a bit longer to let the filesystem settle
+            const delay = Date.now() - this.plugin.lastInternalUpdate < 3000 ? 1000 : 500;
 
             if (this.refreshTimer) clearTimeout(this.refreshTimer);
             this.refreshTimer = setTimeout(() => {
                 FastTodosRenderer.clearCache();
                 this.render();
-            }, 800);
+            }, delay);
+        }));
+
+        // Listen for GLOBAL refresh broadcast
+        this.registerEvent((this.app.workspace as any).on('fast-todos:refresh-all', () => {
+            if (this.refreshTimer) clearTimeout(this.refreshTimer);
+            this.refreshTimer = setTimeout(() => {
+                FastTodosRenderer.clearCache();
+                this.lastRenderedHash = ""; // Force re-render
+                this.render();
+            }, 400); // Wait for Obsidian metadata cache to catch up
         }));
     }
 
@@ -212,11 +234,13 @@ class FastTodosRenderer extends MarkdownRenderChild {
         if (config.sortBy) {
             filteredTasks.sort((a, b) => {
                 if (config.sortBy === 'priority') {
-                    const weight = { high: 3, normal: 2, low: 1 };
-                    return weight[b.priority] - weight[a.priority];
+                    const weight: any = { high: 3, normal: 2, low: 1 };
+                    const wa = weight[a.priority] || 2;
+                    const wb = weight[b.priority] || 2;
+                    return wb - wa;
                 }
-                if (config.sortBy === 'path') return a.path.localeCompare(b.path);
-                if (config.sortBy === 'description' || config.sortBy === 'alphabet') return a.cleanText.localeCompare(b.cleanText);
+                if (config.sortBy === 'path') return (a.path || "").localeCompare(b.path || "");
+                if (config.sortBy === 'description' || config.sortBy === 'alphabet') return (a.cleanText || "").localeCompare(b.cleanText || "");
                 if (config.sortBy === 'date') return (a.completedDate || "").localeCompare(b.completedDate || "");
                 return 0;
             });
@@ -227,34 +251,52 @@ class FastTodosRenderer extends MarkdownRenderChild {
             filteredTasks = filteredTasks.slice(0, config.limit);
         }
 
-        const currentHash = JSON.stringify(filteredTasks.map(t => ({ p: t.path, l: t.line, c: t.completed, t: t.cleanText })));
+        // Create a hash to avoid unnecessary re-renders. Include priority.
+        const currentHash = JSON.stringify(filteredTasks.map(t => ({
+            p: t.path,
+            l: t.line,
+            c: t.completed,
+            t: t.cleanText,
+            pr: t.priority
+        })));
+
         if (currentHash === this.lastRenderedHash) return;
         this.lastRenderedHash = currentHash;
 
-        this.containerEl.empty();
-        this.containerEl.addClass('fast-todos-container');
+        try {
+            this.containerEl.empty();
+            this.containerEl.addClass('fast-todos-container');
 
-        if (filteredTasks.length === 0) {
-            this.containerEl.createDiv({ text: 'No matching tasks.', cls: 'fast-todos-empty' });
-            return;
-        }
-
-        const groups = this.groupTasks(filteredTasks, config.groupBy);
-        for (const [groupName, fileTasks] of Object.entries(groups)) {
-            const groupWrap = this.containerEl.createDiv({ cls: 'fast-todos-group' });
-            const header = groupWrap.createDiv({ cls: 'fast-todos-header' });
-
-            const possibleFile = this.app.vault.getAbstractFileByPath(fileTasks[0].path) as TFile;
-            const link = header.createEl('a', { text: groupName, cls: 'fast-todos-file-link' });
-            if (possibleFile && groupName.includes(possibleFile.basename)) {
-                link.onclick = () => this.app.workspace.getLeaf(false).openFile(possibleFile);
+            if (filteredTasks.length === 0) {
+                this.containerEl.createDiv({ text: 'No matching tasks.', cls: 'fast-todos-empty' });
+                return;
             }
 
-            const list = groupWrap.createDiv({ cls: 'fast-todos-list' });
-            for (const task of fileTasks) {
-                const file = this.app.vault.getAbstractFileByPath(task.path) as TFile;
-                if (file) this.renderTask(list, task, file);
+            const groups = this.groupTasks(filteredTasks, config.groupBy);
+            for (const [groupName, fileTasks] of Object.entries(groups)) {
+                if (!fileTasks || fileTasks.length === 0) continue;
+
+                const groupWrap = this.containerEl.createDiv({ cls: 'fast-todos-group' });
+                const header = groupWrap.createDiv({ cls: 'fast-todos-header' });
+
+                const firstTask = fileTasks[0];
+                const possibleFile = this.app.vault.getAbstractFileByPath(firstTask.path) as TFile;
+                const link = header.createEl('a', { text: groupName, cls: 'fast-todos-file-link' });
+                if (possibleFile && groupName.includes(possibleFile.basename)) {
+                    link.onclick = () => this.app.workspace.getLeaf(false).openFile(possibleFile);
+                }
+
+                const list = groupWrap.createDiv({ cls: 'fast-todos-list' });
+                for (const task of fileTasks) {
+                    const file = this.app.vault.getAbstractFileByPath(task.path) as TFile;
+                    if (file) {
+                        this.renderTask(list, task, file);
+                    }
+                }
             }
+        } catch (e) {
+            console.error("Fast Todos Render Error:", e);
+            this.containerEl.createDiv({ text: "Error rendering tasks. Check console.", cls: "fast-todos-empty" });
         }
     }
 
@@ -489,48 +531,78 @@ class FastTodosRenderer extends MarkdownRenderChild {
                 if (cached) {
                     cached.completed = result.completed;
                     cached.cleanText = result.description;
+                    cached.priority = result.priority;
                 }
                 await this.updateTask(file, task, result);
-                this.render();
+
+                // Broadcase refresh to all blocks
+                (this.app.workspace as any).trigger('fast-todos:refresh-all');
             }).open();
         };
     }
 
-    async updateTask(file: TFile, task: FastTask, result: { description: string, completed: boolean }) {
-        const content = await this.app.vault.read(file);
-        const lines = content.split('\n');
-        let line = lines[task.line];
-        const taskMatch = line.match(/^(\s*[-*+\d\.\s]*\s*\[[ xX]\]\s*)(.*)/);
-        if (!taskMatch) return;
+    async updateTask(file: TFile, task: FastTask, result: { description: string, completed: boolean, priority: 'high' | 'normal' | 'low' }) {
+        try {
+            const content = await this.app.vault.read(file);
+            const lines = content.split('\n');
+            if (task.line >= lines.length) return;
 
-        const prefix = taskMatch[1];
-        const basePrefix = prefix.replace(/\[.\]/, result.completed ? '[x]' : '[ ]');
-        let finalLine = basePrefix + result.description.trim();
-        if (result.completed) {
-            const now = moment().format('YYYY-MM-DD');
-            finalLine += ` [completed: ${now}]`;
+            let line = lines[task.line];
+            if (!line) return;
+
+            const taskMatch = line.match(/^(\s*[-*+\d\.\s]*\s*\[[ xX]\]\s*)(.*)/);
+            if (!taskMatch) return;
+
+            const prefix = taskMatch[1];
+            const basePrefix = prefix.replace(/\[.\]/, result.completed ? '[x]' : '[ ]');
+
+            // Strip known metadata tags before re-adding
+            let cleanDesc = result.description.replace(/\[(?:priority|completed|completion|created|due):+[^\]]+\]/gi, '').trim();
+
+            if (result.priority && result.priority !== 'normal') {
+                cleanDesc += ` [priority: ${result.priority}]`;
+            }
+
+            let finalLine = basePrefix + cleanDesc;
+            if (result.completed) {
+                const now = moment().format('YYYY-MM-DD');
+                finalLine += ` [completed: ${now}]`;
+            }
+
+            await this.plugin.safeModifyLine(file, task.line, finalLine.trimEnd());
+        } catch (e) {
+            console.error("Update Task failed:", e);
         }
-        await this.plugin.safeModifyLine(file, task.line, finalLine.trimEnd());
     }
 
     async toggleTask(file: TFile, task: FastTask) {
-        const content = await this.app.vault.read(file);
-        const lines = content.split('\n');
-        let line = lines[task.line];
-        const taskMatch = line.match(/^(\s*[-*+\d\.\s]*\s*\[[ xX]\]\s*)(.*)/);
-        if (!taskMatch) return;
+        try {
+            const content = await this.app.vault.read(file);
+            const lines = content.split('\n');
+            if (task.line >= lines.length) return;
 
-        const prefix = taskMatch[1];
-        const rawContent = taskMatch[2];
-        const now = moment().format('YYYY-MM-DD');
+            let line = lines[task.line];
+            if (!line) return;
 
-        const basePrefix = prefix.replace(/\[.\]/, task.completed ? '[x]' : '[ ]');
-        const cleanContent = rawContent.replace(this.completionRegex, '').trim();
+            const taskMatch = line.match(/^(\s*[-*+\d\.\s]*\s*\[[ xX]\]\s*)(.*)/);
+            if (!taskMatch) return;
 
-        let finalLine = basePrefix + cleanContent;
-        if (task.completed) {
-            finalLine += ` [completed: ${now}]`;
+            const prefix = taskMatch[1];
+            const rawContent = taskMatch[2];
+            const now = moment().format('YYYY-MM-DD');
+
+            const basePrefix = prefix.replace(/\[.\]/, task.completed ? '[x]' : '[ ]');
+
+            // Strip completion tag, but leave priority alone (it's already in the rawContent)
+            const cleanContent = rawContent.replace(this.completionRegex, '').trim();
+
+            let finalLine = basePrefix + cleanContent;
+            if (task.completed) {
+                finalLine += ` [completed: ${now}]`;
+            }
+            await this.plugin.safeModifyLine(file, task.line, finalLine.trimEnd());
+        } catch (e) {
+            console.error("Toggle Task failed:", e);
         }
-        await this.plugin.safeModifyLine(file, task.line, finalLine.trimEnd());
     }
 }
