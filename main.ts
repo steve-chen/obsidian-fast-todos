@@ -1,4 +1,6 @@
-import { App, MarkdownRenderChild, Plugin, TFile, moment, Editor, MarkdownView, Modal, Setting } from 'obsidian';
+import { App, MarkdownRenderChild, Plugin, TFile, moment, Editor, MarkdownView, Modal, Setting, MarkdownPostProcessorContext } from 'obsidian';
+import { EditorView, Decoration, DecorationSet, WidgetType, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
 
 interface FastTask {
     text: string;
@@ -14,6 +16,7 @@ export default class FastTodos extends Plugin {
     public lastInternalUpdate: number = 0;
     private completionTimer: NodeJS.Timeout | null = null;
     private completionRegex = /\[(?:completed|completion):\s*[^\]]*\]/i;
+    public TaskEditModalClass = TaskEditModal;
 
     async onload() {
         console.log('Loading Fast Todos');
@@ -68,6 +71,144 @@ export default class FastTodos extends Plugin {
                 }, 500);
             })
         );
+
+        this.registerMarkdownPostProcessor((el, ctx) => {
+            this.postProcessReadingModeTasks(el, ctx);
+        });
+
+        this.registerEditorExtension(editButtonPlugin(this.app, this));
+    }
+
+
+
+
+
+
+    private postProcessReadingModeTasks(el: HTMLElement, ctx: MarkdownPostProcessorContext) {
+        const taskItems = el.querySelectorAll('.task-list-item');
+        if (taskItems.length === 0) return;
+
+        taskItems.forEach((item) => {
+            if ((item as HTMLElement).querySelector('.fast-todos-inline-edit')) return;
+
+            const editBtn = item.createSpan({ cls: 'fast-todos-inline-edit', text: 'EDIT' });
+            editBtn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const section = ctx.getSectionInfo(el);
+                if (!section) return;
+
+                const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath) as TFile;
+                if (!file || !(file instanceof TFile)) return;
+
+                const content = await this.app.vault.read(file);
+                const lines = content.split('\n');
+
+                // Heuristic to find the exact line matching this task
+                // We limit search to the section range
+                // We purposefully don't use the DOM text for exact matching because of markdown rendering differences
+                // Instead, we find the Nth task in the block that corresponds to the Nth task item in the DOM?
+                // This is risky if there are nested lists.
+
+                // Strategy: 
+                // 1. Get all task items in this block (el)
+                // 2. Find the index of the clicked item among them
+                // 3. Scan the source lines in the section and find the corresponding Nth task string
+
+                const allTasksInBlock = Array.from(el.querySelectorAll('.task-list-item'));
+                const index = allTasksInBlock.indexOf(item);
+
+                if (index === -1) return;
+
+                let taskCount = 0;
+                let targetTask: FastTask | null = null;
+
+                for (let i = section.lineStart; i <= section.lineEnd; i++) {
+                    const line = lines[i];
+                    if (!line) continue;
+
+                    if (line.match(/^\s*[-*+\d\.\s]*\s*\[[ xX]\]/)) {
+                        if (taskCount === index) {
+                            const taskStatusMatch = line.match(/\[([ xX])\]/);
+                            const isCompleted = taskStatusMatch ? (taskStatusMatch[1].toLowerCase() === 'x') : false;
+                            targetTask = this.parseTaskLine(line, i, file.path, isCompleted);
+                            break;
+                        }
+                        taskCount++;
+                    }
+                }
+
+                if (targetTask) {
+                    new TaskEditModal(this.app, targetTask, async (result) => {
+                        await this.handleTaskUpdate(file, targetTask!, result);
+                        // Trigger internal refresh if needed, though file change usually triggers it
+                        // (this.app.workspace as any).trigger('fast-todos:refresh-all');
+                    }).open();
+                }
+            };
+        });
+    }
+
+    private parseTaskLine(line: string, lineNum: number, path: string, isCompleted: boolean): FastTask {
+        const taskMatch = line.match(/^(\s*[-*+\d\.\s]*\s*\[[ xX]\])(.*)/);
+        const rawContent = taskMatch ? taskMatch[2] : line;
+
+        const completedMatch = rawContent.match(/\[(completed|completion):+\s*([^\]]+)\]/i);
+        const priorityMatch = rawContent.match(/\[priority:+\s*(high|normal|low)\]/i);
+
+        let displayDescription = rawContent.replace(/\[(created|completed|completion|due|priority):+[^\]]+\]/gi, '').trim();
+
+        return {
+            text: line,
+            cleanText: displayDescription || "(No Description)",
+            completed: isCompleted,
+            line: lineNum,
+            path,
+            completedDate: completedMatch ? completedMatch[2] : undefined,
+            priority: priorityMatch ? priorityMatch[1].toLowerCase() as any : 'normal'
+        };
+    }
+
+    async handleTaskUpdate(file: TFile, task: FastTask, result: { description: string, completed: boolean, priority: 'high' | 'normal' | 'low' }) {
+        try {
+            const content = await this.app.vault.read(file);
+            const lines = content.split('\n');
+            if (task.line >= lines.length) return;
+
+            let line = lines[task.line];
+            if (!line) return;
+
+            const taskMatch = line.match(/^(\s*[-*+\d\.\s]*\s*\[[ xX]\]\s*)(.*)/);
+            if (!taskMatch) return;
+
+            const prefix = taskMatch[1];
+            const basePrefix = prefix.replace(/\[.\]/, result.completed ? '[x]' : '[ ]');
+
+            let cleanDesc = result.description.replace(/\[(?:priority|completed|completion|created|due):+[^\]]+\]/gi, '').trim();
+
+            if (result.priority && result.priority !== 'normal') {
+                cleanDesc += ` [priority: ${result.priority}]`;
+            }
+
+            let finalLine = basePrefix + cleanDesc;
+            if (result.completed) {
+                const now = moment().format('YYYY-MM-DD');
+                // Check if completed tag existed? This simple logic just appends if completed.
+                // To be robust, we should arguably check if we need to update an existing completed tag or add one.
+                // But following the Renderer's logic:
+                if (!line.match(/\[completed:/)) {
+                    finalLine += ` [completed: ${now}]`;
+                }
+            } else {
+                // Remove completed tag if un-completing
+                finalLine = finalLine.replace(/\[(?:completed|completion):\s*[^\]]*\]/gi, '').trimEnd();
+            }
+
+            await this.safeModifyLine(file, task.line, finalLine.trimEnd());
+        } catch (e) {
+            console.error("Update Task failed:", e);
+        }
     }
 
     async safeModifyLine(file: TFile, lineNum: number, newLine: string) {
@@ -605,4 +746,91 @@ class FastTodosRenderer extends MarkdownRenderChild {
             console.error("Toggle Task failed:", e);
         }
     }
+}
+
+
+export class EditButtonWidget extends WidgetType {
+    constructor(private app: App, private taskLine: string, private lineNum: number, private filePath: string, private plugin: any) {
+        super();
+    }
+
+    toDOM(view: EditorView): HTMLElement {
+        const span = document.createElement("span");
+        span.className = "fast-todos-inline-edit";
+        span.textContent = "EDIT";
+        span.style.marginLeft = "auto";
+        span.style.cursor = "pointer";
+
+        span.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Get dynamic position from view
+            const pos = view.posAtDOM(span);
+            const line = view.state.doc.lineAt(pos);
+            const text = line.text;
+            const lineNum = line.number - 1; // 0-indexed for Obsidian API
+
+            const file = this.app.vault.getAbstractFileByPath(this.filePath);
+            if (file instanceof TFile) {
+                // Parse current text
+                const match = text.match(/^(\s*[-*+\d\.\s]*\s*\[([ xX])\])(.*)/);
+                if (match) {
+                    const isCompleted = match[2].toLowerCase() === 'x';
+                    const task = this.plugin.parseTaskLine(text, lineNum, this.filePath, isCompleted);
+
+                    new (this.plugin.TaskEditModalClass)(this.app, task, async (result: any) => {
+                        await this.plugin.handleTaskUpdate(file, task, result);
+                    }).open();
+                } else {
+                    console.log("Fast Todos: Line no longer matches task pattern", text);
+                }
+            }
+        };
+        return span;
+    }
+
+    ignoreEvent() { return true; }
+}
+
+export function editButtonPlugin(app: App, plugin: any) {
+    return ViewPlugin.fromClass(class {
+        decorations: DecorationSet;
+
+        constructor(view: EditorView) {
+            this.decorations = this.buildDecorations(view);
+        }
+
+        update(update: ViewUpdate) {
+            if (update.docChanged || update.viewportChanged) {
+                this.decorations = this.buildDecorations(update.view);
+            }
+        }
+
+        buildDecorations(view: EditorView) {
+            const builder = new RangeSetBuilder<Decoration>();
+            const file = app.workspace.getActiveFile();
+            if (!file) return Decoration.none;
+
+            for (let { from, to } of view.visibleRanges) {
+                for (let pos = from; pos <= to;) {
+                    const line = view.state.doc.lineAt(pos);
+                    const text = line.text;
+
+                    // Regex for task
+                    if (text.match(/^\s*[-*+\d\.\s]*\s*\[[ xX]\]/)) {
+                        // Add widget at the end of the line
+                        builder.add(line.to, line.to, Decoration.widget({
+                            widget: new EditButtonWidget(app, text, line.number - 1, file.path, plugin),
+                            side: 1
+                        }));
+                    }
+                    pos = line.to + 1;
+                }
+            }
+            return builder.finish();
+        }
+    }, {
+        decorations: v => v.decorations
+    });
 }

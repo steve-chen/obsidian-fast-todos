@@ -313,3 +313,46 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .fast-todos-modal .btn-cta:hover {
     transform: translateY(-1px);
 }
+
+/* Inline edit button for Standard Markdown Tasks */
+/* Inline edit button for Standard Markdown Tasks */
+/* Base position for the edit button */
+.fast-todos-inline-edit {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+    font-size: 0.65em;
+    color: var(--text-muted);
+    float: right;
+    /* Use float for robust right-alignment in LP */
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Specific adjustment for Reading Mode list items */
+.task-list-item {
+    display: flex;
+    align-items: center;
+}
+
+.task-list-item .fast-todos-inline-edit {
+    margin-left: auto;
+    float: none;
+    /* Flex handles it in reading mode */
+}
+
+.task-list-item:hover .fast-todos-inline-edit,
+.cm-line:hover .fast-todos-inline-edit {
+    opacity: 0.5;
+}
+
+.fast-todos-inline-edit:hover {
+    opacity: 1 !important;
+    background-color: var(--background-secondary);
+    color: var(--text-accent);
+    border-color: var(--text-accent);
+}
