@@ -52,13 +52,29 @@ export default class FastTodos extends Plugin {
                             const now = moment().format('YYYY-MM-DD');
                             const newLine = line.trimEnd() + ` [completed: ${now}]`;
                             if (line !== newLine) {
-                                editor.setLine(i, newLine);
+                                const cm = (editor as any).cm;
+                                if (cm) {
+                                    cm.dispatch({
+                                        changes: { from: cm.state.doc.line(i + 1).from, to: cm.state.doc.line(i + 1).to, insert: newLine },
+                                        scrollIntoView: false
+                                    });
+                                } else {
+                                    editor.setLine(i, newLine);
+                                }
                                 changesMade = true;
                             }
                         } else if (!isDone && hasTag) {
                             const newLine = line.replace(/\s*\[(?:completed|completion):\s*[^\]]*\]/gi, '').trimEnd();
                             if (line !== newLine) {
-                                editor.setLine(i, newLine);
+                                const cm = (editor as any).cm;
+                                if (cm) {
+                                    cm.dispatch({
+                                        changes: { from: cm.state.doc.line(i + 1).from, to: cm.state.doc.line(i + 1).to, insert: newLine },
+                                        scrollIntoView: false
+                                    });
+                                } else {
+                                    editor.setLine(i, newLine);
+                                }
                                 changesMade = true;
                             }
                         }
