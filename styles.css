@@ -1,5 +1,41 @@
-.fast-todos-container {
-    padding: 10px 0;
+/* Main Container Stability - Go aggressive to override Obsidian/Theme defaults */
+.block-language-todos,
+.fast-todos-container,
+.markdown-rendered .block-language-todos,
+div[class*="block-language-todos"],
+.markdown-source-view.mod-cm6 .cm-content>.cm-embed-block:has(.fast-todos-container),
+.markdown-source-view.mod-cm6 .cm-content>.cm-embed-block:has(.block-language-todos),
+.markdown-code-block-container:has(.fast-todos-container) {
+    padding: 0 !important;
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Force Hover Stability - Remove Obsidian's default hover borders and highlights */
+.block-language-todos:hover,
+.fast-todos-container:hover,
+div[class*="block-language-todos"]:hover,
+.cm-embed-block:has(.fast-todos-container):hover,
+.cm-embed-block:has(.block-language-todos):hover,
+.markdown-code-block-container:has(.fast-todos-container):hover {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: transparent !important;
+}
+
+/* Hide the "Edit this block" button background if it exists */
+.edit-block-button {
+    opacity: 0.2;
+    transition: opacity 0.2s ease;
+}
+
+.edit-block-button:hover {
+    opacity: 1;
 }
 
 .fast-todos-group {
