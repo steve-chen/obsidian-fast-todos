@@ -105,64 +105,62 @@ export default class FastTodos extends Plugin {
         if (taskItems.length === 0) return;
 
         taskItems.forEach((item) => {
-            if ((item as HTMLElement).querySelector('.fast-todos-inline-edit')) return;
+            // 1. Add Edit Button
+            if (!(item as HTMLElement).querySelector('.fast-todos-inline-edit')) {
+                const editBtn = item.createSpan({ cls: 'fast-todos-inline-edit', text: 'EDIT' });
+                editBtn.onclick = async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
 
-            const editBtn = item.createSpan({ cls: 'fast-todos-inline-edit', text: 'EDIT' });
-            editBtn.onclick = async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+                    const section = ctx.getSectionInfo(el);
+                    if (!section) return;
 
-                const section = ctx.getSectionInfo(el);
-                if (!section) return;
+                    const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath) as TFile;
+                    if (!file || !(file instanceof TFile)) return;
 
-                const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath) as TFile;
-                if (!file || !(file instanceof TFile)) return;
+                    const content = await this.app.vault.read(file);
+                    const lines = content.split('\n');
 
-                const content = await this.app.vault.read(file);
-                const lines = content.split('\n');
+                    const allTasksInBlock = Array.from(el.querySelectorAll('.task-list-item'));
+                    const index = allTasksInBlock.indexOf(item);
 
-                // Heuristic to find the exact line matching this task
-                // We limit search to the section range
-                // We purposefully don't use the DOM text for exact matching because of markdown rendering differences
-                // Instead, we find the Nth task in the block that corresponds to the Nth task item in the DOM?
-                // This is risky if there are nested lists.
+                    if (index === -1) return;
 
-                // Strategy: 
-                // 1. Get all task items in this block (el)
-                // 2. Find the index of the clicked item among them
-                // 3. Scan the source lines in the section and find the corresponding Nth task string
+                    let taskCount = 0;
+                    let targetTask: FastTask | null = null;
 
-                const allTasksInBlock = Array.from(el.querySelectorAll('.task-list-item'));
-                const index = allTasksInBlock.indexOf(item);
+                    for (let i = section.lineStart; i <= section.lineEnd; i++) {
+                        const line = lines[i];
+                        if (!line) continue;
 
-                if (index === -1) return;
-
-                let taskCount = 0;
-                let targetTask: FastTask | null = null;
-
-                for (let i = section.lineStart; i <= section.lineEnd; i++) {
-                    const line = lines[i];
-                    if (!line) continue;
-
-                    if (line.match(/^\s*[-*+\d\.\s]*\s*\[[ xX]\]/)) {
-                        if (taskCount === index) {
-                            const taskStatusMatch = line.match(/\[([ xX])\]/);
-                            const isCompleted = taskStatusMatch ? (taskStatusMatch[1].toLowerCase() === 'x') : false;
-                            targetTask = this.parseTaskLine(line, i, file.path, isCompleted);
-                            break;
+                        if (line.match(/^\s*[-*+\d\.\s]*\s*\[[ xX]\]/)) {
+                            if (taskCount === index) {
+                                const taskStatusMatch = line.match(/\[([ xX])\]/);
+                                const isCompleted = taskStatusMatch ? (taskStatusMatch[1].toLowerCase() === 'x') : false;
+                                targetTask = this.parseTaskLine(line, i, file.path, isCompleted);
+                                break;
+                            }
+                            taskCount++;
                         }
-                        taskCount++;
                     }
-                }
 
-                if (targetTask) {
-                    new TaskEditModal(this.app, targetTask, async (result) => {
-                        await this.handleTaskUpdate(file, targetTask!, result);
-                        // Trigger internal refresh if needed, though file change usually triggers it
-                        // (this.app.workspace as any).trigger('fast-todos:refresh-all');
-                    }).open();
-                }
-            };
+                    if (targetTask) {
+                        new TaskEditModal(this.app, targetTask, async (result) => {
+                            await this.handleTaskUpdate(file, targetTask!, result);
+                        }).open();
+                    }
+                };
+            }
+
+            // 2. Wrap completion tag in a stamp span
+            // We search the entire HTML of the task item to replace the tag string
+            // This is cleaner for ensuring a single box than walking text nodes
+            const matches = item.innerHTML.match(/\[(?:completed|completion):\s*[^\]]*\]/i);
+            if (matches) {
+                const tagText = matches[0];
+                const stampHtml = `<span class="fast-todos-completion-stamp">${tagText}</span>`;
+                item.innerHTML = item.innerHTML.replace(tagText, stampHtml);
+            }
         });
     }
 
@@ -765,7 +763,24 @@ class FastTodosRenderer extends MarkdownRenderChild {
 }
 
 
-export class EditButtonWidget extends WidgetType {
+export class CompletionStampWidget extends WidgetType {
+    constructor(readonly text: string) {
+        super();
+    }
+
+    toDOM() {
+        const span = document.createElement("span");
+        span.className = "fast-todos-completion-stamp";
+        span.textContent = this.text;
+        return span;
+    }
+
+    ignoreEvent() {
+        return false;
+    }
+}
+
+class EditButtonWidget extends WidgetType {
     constructor(private app: App, private taskLine: string, private lineNum: number, private filePath: string, private plugin: any) {
         super();
     }
@@ -832,6 +847,18 @@ export function editButtonPlugin(app: App, plugin: any) {
                 for (let pos = from; pos <= to;) {
                     const line = view.state.doc.lineAt(pos);
                     const text = line.text;
+
+                    // Decoration for completion tag as an ATOMIC REPLACE decoration
+                    const tagMatch = text.match(/\[(?:completed|completion):\s*[^\]]*\]/i);
+                    if (tagMatch && tagMatch.index !== undefined) {
+                        builder.add(
+                            line.from + tagMatch.index,
+                            line.from + tagMatch.index + tagMatch[0].length,
+                            Decoration.replace({
+                                widget: new CompletionStampWidget(tagMatch[0])
+                            })
+                        );
+                    }
 
                     // Regex for task
                     if (text.match(/^\s*[-*+\d\.\s]*\s*\[[ xX]\]/)) {

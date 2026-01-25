@@ -356,3 +356,34 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     color: var(--text-accent);
     border-color: var(--text-accent);
 }
+
+/* Premium Completion Stamp styling */
+.fast-todos-completion-stamp {
+    background-color: rgba(61, 139, 64, 0.1) !important;
+    color: #3d8b40 !important;
+    border: 1px solid rgba(61, 139, 64, 0.3) !important;
+    border-radius: 4px !important;
+    padding: 0 5px !important;
+    font-size: 0.75em !important;
+    font-weight: 600 !important;
+    font-family: var(--font-monospace) !important;
+    text-transform: uppercase !important;
+    letter-spacing: -0.01em !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 1.6em !important;
+    margin-left: 8px !important;
+    line-height: 1 !important;
+    opacity: 1 !important;
+    user-select: none !important;
+    white-space: nowrap !important;
+}
+
+/* Ensure the text is readable on dark themes */
+.theme-dark .fast-todos-completion-stamp {
+    background-color: rgba(107, 203, 119, 0.1) !important;
+    color: #6bcb77 !important;
+    border-color: rgba(107, 203, 119, 0.25) !important;
+}
