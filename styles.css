@@ -376,7 +376,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .task-list-item .fast-todos-inline-edit {
-    margin-left: auto;
+    margin-left: 12px;
     float: none;
     /* Flex handles it in reading mode */
 }

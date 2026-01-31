@@ -789,7 +789,7 @@ class EditButtonWidget extends WidgetType {
         const span = document.createElement("span");
         span.className = "fast-todos-inline-edit";
         span.textContent = "EDIT";
-        span.style.marginLeft = "auto";
+        span.style.marginLeft = "12px";
         span.style.cursor = "pointer";
 
         span.onclick = (e) => {
