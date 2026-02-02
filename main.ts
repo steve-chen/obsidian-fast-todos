@@ -630,11 +630,18 @@ class FastTodosRenderer extends MarkdownRenderChild {
         const item = parent.createDiv({ cls: 'fast-todos-item' });
         item.setAttribute('data-task-id', taskId);
 
-        const checkbox = item.createEl('input', { type: 'checkbox', cls: 'fast-todos-checkbox' });
+        // Swipe background layers
+        const completeBg = item.createDiv({ cls: 'fast-todos-swipe-bg complete', text: '✓ Complete' });
+        const editBg = item.createDiv({ cls: 'fast-todos-swipe-bg edit', text: 'Edit ✎' });
+
+        // Content container for swipe
+        const contentEl = item.createDiv({ cls: 'fast-todos-swipe-content' });
+
+        const checkbox = contentEl.createEl('input', { type: 'checkbox', cls: 'fast-todos-checkbox' });
         checkbox.checked = task.completed;
         if (task.completed) checkbox.setAttribute('checked', 'checked');
 
-        const textSpan = item.createSpan({ cls: 'fast-todos-text', text: '' });
+        const textSpan = contentEl.createSpan({ cls: 'fast-todos-text', text: '' });
         if (task.completed) textSpan.addClass('fast-todos-completed');
 
         const parts = task.cleanText.split(/(#[^\s,]+)/g);
@@ -646,7 +653,7 @@ class FastTodosRenderer extends MarkdownRenderChild {
         if (task.priority !== 'normal') {
             const pClass = `fast-todos-priority-${task.priority}`;
             const pLabel = task.priority === 'high' ? 'HIGH' : 'LOW';
-            item.createSpan({ cls: `fast-todos-priority-badge ${pClass}`, text: pLabel });
+            contentEl.createSpan({ cls: `fast-todos-priority-badge ${pClass}`, text: pLabel });
         }
 
         checkbox.onclick = async (e) => {
@@ -668,7 +675,7 @@ class FastTodosRenderer extends MarkdownRenderChild {
             await this.toggleTask(file, task);
         };
 
-        const actionGroup = item.createDiv({ cls: 'fast-todos-actions' });
+        const actionGroup = contentEl.createDiv({ cls: 'fast-todos-actions' });
         if (task.completed && task.completedDate) {
             actionGroup.createSpan({ cls: 'fast-todos-completed-date', text: ` ✅ ${task.completedDate}` });
         }
@@ -694,6 +701,145 @@ class FastTodosRenderer extends MarkdownRenderChild {
                 (this.app.workspace as any).trigger('fast-todos:refresh-all');
             }).open();
         };
+
+        // Setup swipe gestures
+        this.setupSwipeGestures(item, contentEl, completeBg, editBg, task, file, taskId);
+    }
+
+    private setupSwipeGestures(
+        item: HTMLElement,
+        contentEl: HTMLElement,
+        completeBg: HTMLElement,
+        editBg: HTMLElement,
+        task: FastTask,
+        file: TFile,
+        taskId: string
+    ) {
+        let startX = 0;
+        let currentX = 0;
+        let isDragging = false;
+        let hapticTriggered = false;
+        const SWIPE_THRESHOLD = 80;
+        const HAPTIC_THRESHOLD = 60;
+
+        const onTouchStart = (e: TouchEvent) => {
+            startX = e.touches[0].clientX;
+            isDragging = true;
+            hapticTriggered = false;
+            item.addClass('swiping');
+        };
+
+        const onTouchMove = (e: TouchEvent) => {
+            if (!isDragging) return;
+            
+            currentX = e.touches[0].clientX;
+            const deltaX = currentX - startX;
+
+            // Prevent vertical scroll interference when swiping horizontally
+            if (Math.abs(deltaX) > 10) {
+                e.preventDefault();
+            }
+
+            // Apply transform with resistance
+            const resistance = 0.6;
+            const translateX = deltaX * resistance;
+            contentEl.style.transform = `translateX(${translateX}px)`;
+
+            // Show background based on direction
+            if (deltaX > 0) {
+                // Swiping right - show complete
+                completeBg.addClass('active');
+                editBg.removeClass('active');
+                
+                // Haptic feedback at threshold
+                if (deltaX > HAPTIC_THRESHOLD && !hapticTriggered) {
+                    this.triggerHaptic();
+                    hapticTriggered = true;
+                } else if (deltaX < HAPTIC_THRESHOLD) {
+                    hapticTriggered = false;
+                }
+            } else if (deltaX < 0) {
+                // Swiping left - show edit
+                completeBg.removeClass('active');
+                editBg.addClass('active');
+                
+                if (Math.abs(deltaX) > HAPTIC_THRESHOLD && !hapticTriggered) {
+                    this.triggerHaptic();
+                    hapticTriggered = true;
+                } else if (Math.abs(deltaX) < HAPTIC_THRESHOLD) {
+                    hapticTriggered = false;
+                }
+            }
+        };
+
+        const onTouchEnd = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            item.removeClass('swiping');
+
+            const deltaX = currentX - startX;
+
+            // Snap or reset
+            if (deltaX > SWIPE_THRESHOLD) {
+                // Trigger complete action
+                this.triggerHaptic();
+                this.handleSwipeComplete(task, file, taskId, item);
+            } else if (deltaX < -SWIPE_THRESHOLD) {
+                // Trigger edit action
+                this.triggerHaptic();
+                this.handleSwipeEdit(task, file, taskId);
+            }
+
+            // Reset transform
+            contentEl.style.transform = '';
+            completeBg.removeClass('active');
+            editBg.removeClass('active');
+            hapticTriggered = false;
+        };
+
+        item.addEventListener('touchstart', onTouchStart, { passive: true });
+        item.addEventListener('touchmove', onTouchMove, { passive: false });
+        item.addEventListener('touchend', onTouchEnd, { passive: true });
+        item.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    }
+
+    private triggerHaptic() {
+        // Use Vibration API if available (mobile)
+        if (navigator.vibrate) {
+            navigator.vibrate(10); // Short 10ms vibration - minimal battery impact
+        }
+    }
+
+    private async handleSwipeComplete(task: FastTask, file: TFile, taskId: string, item: HTMLElement) {
+        const newState = !task.completed;
+        task.completed = newState;
+
+        if (newState) {
+            this.startCountdown(taskId, item, task);
+        } else {
+            this.applyVisualDone(item, false);
+            this.activeCountdowns.delete(taskId);
+            const existingCountdown = item.querySelector('.fast-todos-countdown');
+            if (existingCountdown) existingCountdown.remove();
+        }
+
+        const cached = FastTodosRenderer.taskCache.find(t => `${t.path}:${t.line}` === taskId);
+        if (cached) cached.completed = newState;
+
+        await this.toggleTask(file, task);
+    }
+
+    private handleSwipeEdit(task: FastTask, file: TFile, taskId: string) {
+        new TaskEditModal(this.app, task, async (result) => {
+            const cached = FastTodosRenderer.taskCache.find(t => `${t.path}:${t.line}` === taskId);
+            if (cached) {
+                cached.completed = result.completed;
+                cached.cleanText = result.description;
+                cached.priority = result.priority;
+            }
+            await this.updateTask(file, task, result);
+            (this.app.workspace as any).trigger('fast-todos:refresh-all');
+        }).open();
     }
 
     async updateTask(file: TFile, task: FastTask, result: { description: string, completed: boolean, priority: 'high' | 'normal' | 'low' }) {

@@ -423,3 +423,68 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     color: #6bcb77 !important;
     border-color: rgba(107, 203, 119, 0.25) !important;
 }
+/* Swipe gesture styles for mobile */
+.fast-todos-item {
+    position: relative;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.fast-todos-swipe-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    font-weight: 600;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.fast-todos-swipe-bg.complete {
+    background: linear-gradient(to right, var(--interactive-success, #4CAF50) 0%, transparent 60%);
+    color: white;
+    justify-content: flex-start;
+}
+
+.fast-todos-swipe-bg.complete.active {
+    opacity: 1;
+}
+
+.fast-todos-swipe-bg.edit {
+    background: linear-gradient(to left, var(--interactive-accent, #7c3aed) 0%, transparent 60%);
+    color: white;
+    justify-content: flex-end;
+}
+
+.fast-todos-swipe-bg.edit.active {
+    opacity: 1;
+}
+
+.fast-todos-swipe-content {
+    position: relative;
+    z-index: 1;
+    background: var(--background-primary);
+    transition: transform 0.1s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 0;
+    width: 100%;
+}
+
+.fast-todos-swipe-content .fast-todos-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.fast-todos-item.swiping .fast-todos-swipe-content {
+    transition: none;
+}
