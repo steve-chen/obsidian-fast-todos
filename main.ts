@@ -436,7 +436,9 @@ class FastTodosRenderer extends MarkdownRenderChild {
 
                 const firstTask = fileTasks[0];
                 const possibleFile = this.app.vault.getAbstractFileByPath(firstTask.path) as TFile;
-                const link = header.createEl('a', { text: groupName, cls: 'fast-todos-file-link' });
+                const todoCount = fileTasks.length;
+                const displayText = `${groupName} (${todoCount} todo${todoCount !== 1 ? 's' : ''})`;
+                const link = header.createEl('a', { text: displayText, cls: 'fast-todos-file-link' });
                 if (possibleFile && groupName.includes(possibleFile.basename)) {
                     link.onclick = () => this.app.workspace.getLeaf(false).openFile(possibleFile);
                 }
