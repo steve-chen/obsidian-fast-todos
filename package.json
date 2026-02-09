@@ -1,6 +1,6 @@
 {
     "name": "fast-todos",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "description": "A lightweight, beautiful task manager that uses native Obsidian speed.",
     "main": "main.js",
     "scripts": {
@@ -9,7 +9,7 @@
         "deploy": "npm run build && cp main.js styles.css manifest.json ~/Vaults/.obsidian/plugins/fast-todos/"
     },
     "keywords": [],
-    "author": "Antigravity",
+    "author": "Steve Chen & Kimi-K2.5",
     "license": "MIT",
     "devDependencies": {
         "@types/node": "^16.11.6",

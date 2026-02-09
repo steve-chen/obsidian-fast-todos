@@ -142,6 +142,10 @@ div[class*="block-language-todos"]:hover,
     font-weight: 700;
     letter-spacing: 0.5px;
     white-space: nowrap;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .fast-todos-action-btn:hover {
@@ -233,6 +237,13 @@ div[class*="block-language-todos"]:hover,
     color: var(--text-faint);
     font-style: italic;
     padding: 10px;
+}
+
+.fast-todos-loading {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 10px;
+    animation: fast-pulse 1.5s ease-in-out infinite;
 }
 
 /* Modal Styling - Scoped to Beauty Tasks */

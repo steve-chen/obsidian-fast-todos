@@ -93,6 +93,9 @@ export default class FastTodos extends Plugin {
         });
 
         this.registerEditorExtension(editButtonPlugin(this.app, this));
+        
+        // Warm up the cache in the background after plugin loads
+        FastTodosRenderer.warmCache(this.app, this);
     }
 
 
@@ -298,10 +301,15 @@ class TaskEditModal extends Modal {
 class FastTodosRenderer extends MarkdownRenderChild {
     private static taskCache: FastTask[] = [];
     private static lastScanTime: number = 0;
+    private static isWarmingCache: boolean = false;
+    private static cachePromise: Promise<FastTask[]> | null = null;
     private lastRenderedHash: string = "";
     private completionRegex = /\[(?:completed|completion):\s*[^\]]*\]/gi;
     private refreshTimer: NodeJS.Timeout | null = null;
     private activeCountdowns: Set<string> = new Set();
+    
+    // Cache for 2 minutes instead of 10 seconds
+    private static readonly CACHE_TTL = 2 * 60 * 1000;
 
     constructor(public containerEl: HTMLElement, public app: App, public source: string, public sourcePath: string, public plugin: FastTodos) {
         super(containerEl);
@@ -376,7 +384,21 @@ class FastTodosRenderer extends MarkdownRenderChild {
 
     async render() {
         if (!this.containerEl) return;
+        
+        // Show loading state immediately on first render
+        const isFirstRender = this.lastRenderedHash === "";
+        if (isFirstRender && FastTodosRenderer.taskCache.length === 0) {
+            this.containerEl.empty();
+            this.containerEl.addClass('fast-todos-container');
+            this.containerEl.createDiv({ text: 'Loading tasks...', cls: 'fast-todos-loading' });
+        }
+        
         const tasks = await this.getTasks();
+        
+        // Remove loading state if it exists
+        const loadingEl = this.containerEl.querySelector('.fast-todos-loading');
+        if (loadingEl) loadingEl.remove();
+        
         const config = this.parseConfig(this.source);
         const today = moment().format('YYYY-MM-DD');
 
@@ -459,36 +481,99 @@ class FastTodosRenderer extends MarkdownRenderChild {
 
     async getTasks(): Promise<FastTask[]> {
         const now = Date.now();
-        if (FastTodosRenderer.taskCache.length > 0 && (now - FastTodosRenderer.lastScanTime < 10000)) {
+        
+        // Return cached data if still valid
+        if (FastTodosRenderer.taskCache.length > 0 && (now - FastTodosRenderer.lastScanTime < FastTodosRenderer.CACHE_TTL)) {
             return FastTodosRenderer.taskCache;
         }
-
+        
+        // If a scan is already in progress, wait for it
+        if (FastTodosRenderer.cachePromise) {
+            return FastTodosRenderer.cachePromise;
+        }
+        
+        // Start a new scan with deduplication
+        FastTodosRenderer.cachePromise = this.scanAllTasks();
+        try {
+            const tasks = await FastTodosRenderer.cachePromise;
+            return tasks;
+        } finally {
+            FastTodosRenderer.cachePromise = null;
+        }
+    }
+    
+    private async scanAllTasks(): Promise<FastTask[]> {
         const allFiles = this.app.vault.getMarkdownFiles();
         const tasks: FastTask[] = [];
+        
+        // Process files in batches to avoid blocking the UI
+        const BATCH_SIZE = 50;
+        
+        for (let i = 0; i < allFiles.length; i += BATCH_SIZE) {
+            const batch = allFiles.slice(i, i + BATCH_SIZE);
+            
+            await Promise.all(batch.map(async (file) => {
+                const cache = this.app.metadataCache.getFileCache(file);
+                if (!cache || !cache.listItems) return;
+                
+                // Only read file if it has task items in metadata
+                const hasTasks = cache.listItems.some(item => item.task);
+                if (!hasTasks) return;
 
-        for (const file of allFiles) {
-            const cache = this.app.metadataCache.getFileCache(file);
-            if (!cache || !cache.listItems) continue;
+                try {
+                    const content = await this.app.vault.cachedRead(file);
+                    const lines = content.split('\n');
 
-            const content = await this.app.vault.cachedRead(file);
-            const lines = content.split('\n');
+                    for (const item of cache.listItems) {
+                        if (item.task) {
+                            const lineText = lines[item.position.start.line];
+                            if (!lineText) continue;
 
-            for (const item of cache.listItems) {
-                if (item.task) {
-                    const lineText = lines[item.position.start.line];
-                    if (!lineText) continue;
+                            const taskStatusMatch = lineText.match(/\[([ xX])\]/);
+                            const isCompleted = taskStatusMatch ? (taskStatusMatch[1].toLowerCase() === 'x') : (item.task === 'x' || item.task === 'X');
 
-                    const taskStatusMatch = lineText.match(/\[([ xX])\]/);
-                    const isCompleted = taskStatusMatch ? (taskStatusMatch[1].toLowerCase() === 'x') : (item.task === 'x' || item.task === 'X');
-
-                    tasks.push(this.parseTaskLine(lineText, item.position.start.line, file.path, isCompleted));
+                            tasks.push(this.parseTaskLine(lineText, item.position.start.line, file.path, isCompleted));
+                        }
+                    }
+                } catch (e) {
+                    // Skip files that can't be read
+                    console.warn('Fast Todos: Could not read file', file.path, e);
                 }
+            }));
+            
+            // Yield to the event loop between batches to keep UI responsive
+            if (i + BATCH_SIZE < allFiles.length) {
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
 
         FastTodosRenderer.taskCache = tasks;
-        FastTodosRenderer.lastScanTime = now;
+        FastTodosRenderer.lastScanTime = Date.now();
         return tasks;
+    }
+    
+    // Warm up the cache when plugin loads - call this from plugin onload
+    static warmCache(app: App, plugin: FastTodos) {
+        if (FastTodosRenderer.isWarmingCache || FastTodosRenderer.taskCache.length > 0) {
+            return;
+        }
+        
+        FastTodosRenderer.isWarmingCache = true;
+        
+        // Use setTimeout to not block plugin initialization
+        setTimeout(async () => {
+            try {
+                // Create a dummy renderer just to call getTasks
+                const dummyEl = document.createElement('div');
+                const renderer = new FastTodosRenderer(dummyEl, app, '', '', plugin);
+                await renderer.getTasks();
+                console.log('Fast Todos: Cache warmed with', FastTodosRenderer.taskCache.length, 'tasks');
+            } catch (e) {
+                console.error('Fast Todos: Cache warm failed', e);
+            } finally {
+                FastTodosRenderer.isWarmingCache = false;
+            }
+        }, 1000); // Wait 1 second after plugin load to let Obsidian settle
     }
 
     parseTaskLine(line: string, lineNum: number, path: string, isCompleted: boolean): FastTask {
@@ -683,13 +768,20 @@ class FastTodosRenderer extends MarkdownRenderChild {
         }
 
         const linkBtn = actionGroup.createSpan({ cls: 'fast-todos-action-btn', text: 'LINK' });
-        linkBtn.onclick = (e) => {
+        const handleLinkClick = (e: Event) => {
             e.preventDefault();
+            e.stopPropagation();
             this.app.workspace.getLeaf(false).openFile(file, { eState: { line: task.line } });
         };
+        linkBtn.onclick = handleLinkClick;
+        linkBtn.addEventListener('touchend', handleLinkClick, { passive: false });
 
         const editBtn = actionGroup.createSpan({ cls: 'fast-todos-action-btn', text: 'EDIT' });
-        editBtn.onclick = () => {
+        const handleEditClick = (e?: Event) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             new TaskEditModal(this.app, task, async (result) => {
                 const cached = FastTodosRenderer.taskCache.find(t => `${t.path}:${t.line}` === taskId);
                 if (cached) {
@@ -703,6 +795,8 @@ class FastTodosRenderer extends MarkdownRenderChild {
                 (this.app.workspace as any).trigger('fast-todos:refresh-all');
             }).open();
         };
+        editBtn.onclick = handleEditClick;
+        editBtn.addEventListener('touchend', handleEditClick, { passive: false });
 
         // Setup swipe gestures
         this.setupSwipeGestures(item, contentEl, completeBg, editBg, task, file, taskId);
@@ -721,10 +815,18 @@ class FastTodosRenderer extends MarkdownRenderChild {
         let currentX = 0;
         let isDragging = false;
         let hapticTriggered = false;
+        let touchStartedOnButton = false;
         const SWIPE_THRESHOLD = 80;
         const HAPTIC_THRESHOLD = 60;
 
         const onTouchStart = (e: TouchEvent) => {
+            // Check if touch started on a button - if so, don't process swipe
+            const target = e.target as HTMLElement;
+            if (target?.closest('.fast-todos-action-btn')) {
+                touchStartedOnButton = true;
+                return;
+            }
+            touchStartedOnButton = false;
             startX = e.touches[0].clientX;
             isDragging = true;
             hapticTriggered = false;
@@ -732,6 +834,7 @@ class FastTodosRenderer extends MarkdownRenderChild {
         };
 
         const onTouchMove = (e: TouchEvent) => {
+            if (touchStartedOnButton) return;
             if (!isDragging) return;
             
             currentX = e.touches[0].clientX;
@@ -775,6 +878,10 @@ class FastTodosRenderer extends MarkdownRenderChild {
         };
 
         const onTouchEnd = () => {
+            if (touchStartedOnButton) {
+                touchStartedOnButton = false;
+                return;
+            }
             if (!isDragging) return;
             isDragging = false;
             item.removeClass('swiping');
