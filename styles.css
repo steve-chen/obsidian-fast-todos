@@ -1,4 +1,4 @@
-/* Main Container Stability - Go aggressive to override Obsidian/Theme defaults */
+/* Main Container Stability */
 .block-language-todos,
 .fast-todos-container,
 .markdown-rendered .block-language-todos,
@@ -15,7 +15,6 @@ div[class*="block-language-todos"],
     background-color: transparent !important;
 }
 
-/* Force Hover Stability - Remove Obsidian's default hover borders and highlights */
 .block-language-todos:hover,
 .fast-todos-container:hover,
 div[class*="block-language-todos"]:hover,
@@ -28,7 +27,10 @@ div[class*="block-language-todos"]:hover,
     background: transparent !important;
 }
 
-/* Hide the "Edit this block" button background if it exists */
+.fast-todos-container:focus {
+    outline: none !important;
+}
+
 .edit-block-button {
     opacity: 0.2;
     transition: opacity 0.2s ease;
@@ -38,8 +40,22 @@ div[class*="block-language-todos"]:hover,
     opacity: 1;
 }
 
+/* Group Styles */
 .fast-todos-group {
     margin-bottom: 12px;
+}
+
+.fast-todos-header {
+    padding: 4px 0px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 4px;
+}
+
+.fast-todos-header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .fast-todos-file-link {
@@ -47,31 +63,101 @@ div[class*="block-language-todos"]:hover,
     color: var(--text-accent);
     text-decoration: none;
     font-size: 0.9em;
-    display: block;
-    margin-bottom: 4px;
-    border-bottom: 1px solid var(--background-modifier-border);
-    padding-bottom: 2px;
+    cursor: pointer;
 }
 
 .fast-todos-file-link:hover {
     text-decoration: underline;
 }
 
+/* Progress Bar removed */
+
+/* Complete All Button removed */
+
+/* List Styles */
+.fast-todos-list {
+    padding: 2px 0;
+}
+
 .fast-todos-item {
     display: flex;
     align-items: center;
-    padding: 2px 0;
-    gap: 10px;
+    padding: 1px 6px;
+    gap: 8px;
+    border-radius: 4px;
+    transition: background-color 0.15s ease;
+    position: relative;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-/* Circular Checkbox styling */
+.fast-todos-item:hover,
+.fast-todos-item.is-selected {
+    background: var(--background-secondary-alt);
+}
+
+.fast-todos-item.is-selected {
+    box-shadow: inset 0 0 0 2px var(--interactive-accent);
+}
+
+.fast-todos-item[draggable="true"] {
+    cursor: grab;
+}
+
+.fast-todos-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.fast-todos-item.dragging {
+    opacity: 0.5;
+}
+
+.fast-todos-item.drag-over {
+    border-top: 2px solid var(--interactive-accent);
+}
+
+/* Task Hierarchy Indicators */
+.fast-todos-indent-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--background-modifier-border);
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.fast-todos-indent-guide::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 10px;
+    height: 1px;
+    background-color: var(--background-modifier-border);
+    opacity: 1;
+}
+
+/* Make indent guides more visible on hover */
+.fast-todos-item:hover .fast-todos-indent-guide {
+    opacity: 0.6;
+    background-color: var(--text-faint);
+}
+
+.fast-todos-item:hover .fast-todos-indent-guide::before {
+    background-color: var(--text-faint);
+}
+
+/* Circular Checkbox */
 .fast-todos-checkbox {
     appearance: none;
     -webkit-appearance: none;
     width: 18px;
     height: 18px;
     border: 1.5px solid var(--text-faint);
-    border-radius: 50%;
+    border-radius: 4px;
     cursor: pointer;
     position: relative;
     transition: all 0.2s ease;
@@ -85,7 +171,7 @@ div[class*="block-language-todos"]:hover,
 }
 
 .fast-todos-checkbox:checked::after {
-    content: '✓';
+    content: "✓";
     position: absolute;
     color: white;
     font-size: 11px;
@@ -94,9 +180,28 @@ div[class*="block-language-todos"]:hover,
     transform: translate(-50%, -50%);
 }
 
+.fast-todos-checkbox[data-status="-"] {
+    background-color: var(--background-secondary-alt);
+    border-color: var(--text-muted);
+}
+
+.fast-todos-checkbox[data-status="-"]::after {
+    content: "—";
+    position: absolute;
+    color: var(--text-muted);
+    font-size: 14px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: bold;
+}
+
 .fast-todos-text {
     font-size: 0.95em;
     color: var(--text-normal);
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .fast-todos-tag {
@@ -112,11 +217,6 @@ div[class*="block-language-todos"]:hover,
 .fast-todos-completed {
     text-decoration: line-through;
     color: var(--text-faint);
-}
-
-.fast-todos-backlink {
-    font-size: 0.8em;
-    color: var(--text-muted);
 }
 
 .fast-todos-actions {
@@ -154,8 +254,22 @@ div[class*="block-language-todos"]:hover,
     background-color: var(--background-secondary);
 }
 
-.fast-todos-due,
-.fast-todos-created,
+/* Due Date */
+.fast-todos-due {
+    font-size: 0.8em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(var(--interactive-accent-rgb), 0.1);
+    color: var(--interactive-accent);
+    white-space: nowrap;
+}
+
+.fast-todos-due.overdue {
+    background: rgba(255, 87, 87, 0.15);
+    color: #ff5757;
+    animation: fast-pulse 2s infinite;
+}
+
 .fast-todos-completed-date {
     font-size: 0.85em;
     padding: 2px 8px;
@@ -163,20 +277,6 @@ div[class*="block-language-todos"]:hover,
     margin-left: 8px;
     white-space: nowrap;
     font-weight: 500;
-}
-
-.fast-todos-due {
-    background-color: rgba(var(--interactive-accent-rgb), 0.1);
-    color: var(--interactive-accent);
-}
-
-.fast-todos-created {
-    background-color: var(--background-secondary-alt);
-    color: var(--text-muted);
-    border: 1px solid var(--background-modifier-border);
-}
-
-.fast-todos-completed-date {
     background-color: rgba(107, 203, 119, 0.1);
     color: #6bcb77;
 }
@@ -203,50 +303,46 @@ div[class*="block-language-todos"]:hover,
     }
 }
 
-.beauty-task-suggestion {
-    padding: 4px 8px;
-    font-weight: 500;
-}
-
-.fast-todos-backlink {
-    color: var(--text-muted);
-    font-size: 0.8em;
-    margin-left: 8px;
-}
-
-.fast-todos-link {
-    color: var(--interactive-accent) !important;
-    text-decoration: none !important;
-    cursor: pointer;
-    font-weight: 500;
-    opacity: 1 !important;
-    /* Force full brightness */
-}
-
-.fast-todos-link:hover {
-    text-decoration: underline !important;
-}
-
-.fast-todos-completed+.fast-todos-backlink .fast-todos-link {
-    color: var(--text-faint) !important;
-    opacity: 0.4 !important;
-    text-decoration: none !important;
-}
-
 .fast-todos-empty {
     color: var(--text-faint);
     font-style: italic;
-    padding: 10px;
+    padding: 16px;
+    text-align: center;
 }
 
 .fast-todos-loading {
     color: var(--text-muted);
     font-style: italic;
-    padding: 10px;
+    padding: 16px;
     animation: fast-pulse 1.5s ease-in-out infinite;
+    text-align: center;
 }
 
-/* Modal Styling - Scoped to Beauty Tasks */
+/* Priority Badges */
+.fast-todos-priority-badge {
+    font-size: 0.65em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.fast-todos-priority-high {
+    background-color: rgba(255, 87, 87, 0.15);
+    color: #ff5757;
+    border: 1px solid rgba(255, 87, 87, 0.3);
+}
+
+.fast-todos-priority-low {
+    background-color: rgba(0, 150, 255, 0.1);
+    color: #0096ff;
+    border: 1px solid rgba(0, 150, 255, 0.2);
+}
+
+/* Modal Styling */
 .fast-todos-modal .modal {
     border-radius: 12px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
@@ -263,7 +359,6 @@ div[class*="block-language-todos"]:hover,
     letter-spacing: -0.02em;
 }
 
-/* Description Field Layout */
 .fast-todos-modal .fast-modal-description {
     display: flex;
     flex-direction: column;
@@ -295,7 +390,6 @@ div[class*="block-language-todos"]:hover,
     box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
 }
 
-/* Standard Settings Styling within our modal */
 .fast-todos-modal .setting-item {
     padding: 16px 0;
     border-top: 1px solid var(--background-modifier-border);
@@ -310,19 +404,13 @@ div[class*="block-language-todos"]:hover,
     color: var(--text-normal);
 }
 
-.fast-todos-modal input[type="date"] {
+.fast-todos-modal input[type="text"] {
     background-color: var(--background-secondary-alt);
     border: 1px solid var(--background-modifier-border);
     border-radius: 6px;
     padding: 6px 12px;
     color: var(--text-normal);
     font-family: inherit;
-    cursor: pointer;
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.5);
-    cursor: pointer;
 }
 
 .fast-todos-modal .btn-cta {
@@ -334,36 +422,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     margin-top: 12px;
 }
 
-.fast-todos-priority-badge {
-    font-size: 0.65em;
-    padding: 1px 6px;
-    border-radius: 4px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-left: 8px;
-    flex-shrink: 0;
-}
-
-.fast-todos-priority-high {
-    background-color: rgba(255, 87, 87, 0.15);
-    color: #ff5757;
-    border: 1px solid rgba(255, 87, 87, 0.3);
-}
-
-.fast-todos-priority-low {
-    background-color: rgba(0, 150, 255, 0.1);
-    color: #0096ff;
-    border: 1px solid rgba(0, 150, 255, 0.2);
-}
-
-.fast-todos-modal .btn-cta:hover {
-    transform: translateY(-1px);
-}
-
-/* Inline edit button for Standard Markdown Tasks */
-/* Inline edit button for Standard Markdown Tasks */
-/* Base position for the edit button */
+/* Inline Edit Button */
 .fast-todos-inline-edit {
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -371,7 +430,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     font-size: 0.65em;
     color: var(--text-muted);
     float: right;
-    /* Use float for robust right-alignment in LP */
     padding: 1px 6px;
     border-radius: 4px;
     border: 1px solid var(--background-modifier-border);
@@ -380,7 +438,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     letter-spacing: 0.05em;
 }
 
-/* Specific adjustment for Reading Mode list items */
 .task-list-item {
     display: flex;
     align-items: center;
@@ -389,7 +446,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .task-list-item .fast-todos-inline-edit {
     margin-left: 12px;
     float: none;
-    /* Flex handles it in reading mode */
 }
 
 .task-list-item:hover .fast-todos-inline-edit,
@@ -404,7 +460,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     border-color: var(--text-accent);
 }
 
-/* Premium Completion Stamp styling */
+/* Completion Stamp */
 .fast-todos-completion-stamp {
     background-color: rgba(61, 139, 64, 0.1) !important;
     color: #3d8b40 !important;
@@ -428,20 +484,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     white-space: nowrap !important;
 }
 
-/* Ensure the text is readable on dark themes */
 .theme-dark .fast-todos-completion-stamp {
     background-color: rgba(107, 203, 119, 0.1) !important;
     color: #6bcb77 !important;
     border-color: rgba(107, 203, 119, 0.25) !important;
 }
-/* Swipe gesture styles for mobile */
-.fast-todos-item {
-    position: relative;
-    touch-action: pan-y;
-    user-select: none;
-    -webkit-user-select: none;
-}
 
+/* Swipe Gestures */
 .fast-todos-swipe-bg {
     position: absolute;
     top: 0;
@@ -460,7 +509,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .fast-todos-swipe-bg.complete {
-    background: linear-gradient(to right, var(--interactive-success, #4CAF50) 0%, transparent 60%);
+    background: linear-gradient(to right,
+            var(--interactive-success, #4caf50) 0%,
+            transparent 60%);
     color: white;
     justify-content: flex-start;
 }
@@ -470,7 +521,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .fast-todos-swipe-bg.edit {
-    background: linear-gradient(to left, var(--interactive-accent, #7c3aed) 0%, transparent 60%);
+    background: linear-gradient(to left,
+            var(--interactive-accent, #7c3aed) 0%,
+            transparent 60%);
     color: white;
     justify-content: flex-end;
 }
@@ -498,4 +551,56 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .fast-todos-item.swiping .fast-todos-swipe-content {
     transition: none;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .fast-todos-header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .fast-todos-progress-bar {
+        width: 100%;
+    }
+
+    /* Mobile: Stack task content vertically */
+    .fast-todos-item {
+        flex-wrap: wrap;
+        padding: 4px 6px;
+    }
+
+    /* Checkbox and text on first line */
+    .fast-todos-checkbox {
+        order: 1;
+    }
+
+    .fast-todos-text {
+        order: 2;
+        flex: 1 1 100%;
+        margin-left: 26px;
+        /* Align with checkbox */
+    }
+
+    /* Due date and actions on second line */
+    .fast-todos-due {
+        order: 3;
+        margin-left: 26px;
+        /* Align with text */
+        margin-top: 2px;
+    }
+
+    .fast-todos-actions {
+        order: 4;
+        margin-left: auto;
+        margin-top: 2px;
+        opacity: 1;
+        /* Always visible on mobile */
+    }
+
+    /* Priority badge stays inline */
+    .fast-todos-tag {
+        order: 5;
+    }
 }
