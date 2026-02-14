@@ -130,7 +130,7 @@ div[class*="block-language-todos"]:hover,
 }
 
 .fast-todos-indent-guide::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 0;
@@ -340,6 +340,10 @@ div[class*="block-language-todos"]:hover,
     background-color: rgba(0, 150, 255, 0.1);
     color: #0096ff;
     border: 1px solid rgba(0, 150, 255, 0.2);
+}
+
+.fast-todos-priority-wrapper {
+    display: contents;
 }
 
 /* Modal Styling */
@@ -568,39 +572,96 @@ div[class*="block-language-todos"]:hover,
     /* Mobile: Stack task content vertically */
     .fast-todos-item {
         flex-wrap: wrap;
-        padding: 4px 6px;
+        padding: 6px 0 6px 6px;
+        /* No right padding */
+        position: relative;
+        margin-right: 0;
+        min-height: 50px;
+        /* Prevent button overlap on short tasks */
     }
 
-    /* Checkbox and text on first line */
+    /* Allow swipe content to wrap so due date can go below text */
+    .fast-todos-swipe-content {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    /* Checkbox stays on the left */
     .fast-todos-checkbox {
         order: 1;
+        flex-shrink: 0;
     }
 
+    /* Text takes remaining space on first row */
     .fast-todos-text {
         order: 2;
-        flex: 1 1 100%;
-        margin-left: 26px;
-        /* Align with checkbox */
+        flex: 1;
+        min-width: 0;
+        padding-right: 48px;
+        /* Space for buttons */
     }
 
-    /* Due date and actions on second line */
+    /* Due date appears on second row, below text */
     .fast-todos-due {
         order: 3;
         margin-left: 26px;
-        /* Align with text */
-        margin-top: 2px;
+        /* Align with text (checkbox width + gap) */
+        flex-basis: calc(100% - 30px);
     }
 
-    .fast-todos-actions {
+    /* Priority badge on third row, below text */
+    /* Priority badge on third row, below text */
+    /* Priority badge wrapper */
+    .fast-todos-priority-wrapper {
         order: 4;
-        margin-left: auto;
-        margin-top: 2px;
-        opacity: 1;
-        /* Always visible on mobile */
+        margin-left: 26px;
+        /* Align with text */
+        margin-top: 6px;
+        /* Push down slightly */
+        flex: 1 0 100%;
+        /* Force wrapper to own row */
+        display: flex;
+        /* Layout children */
+        align-items: center;
+        /* Vertically align badge */
     }
 
-    /* Priority badge stays inline */
-    .fast-todos-tag {
+    /* Reset badge inside wrapper to be auto width */
+    .fast-todos-priority-wrapper .fast-todos-priority-badge {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        max-width: none !important;
+        margin: 0;
+        /* Remove margin as wrapper handles it */
+        padding-right: 6px;
+    }
+
+    /* Actions on the right side, stacked vertically */
+    .fast-todos-actions {
         order: 5;
+        position: absolute;
+        right: 0;
+        /* Flush to edge */
+        top: 6px;
+        /* Align with top padding */
+        transform: none;
+        /* Remove vertical centering */
+        flex-direction: column;
+        gap: 2px;
+        margin: 0;
+        opacity: 1;
+        align-items: stretch;
+    }
+
+    .fast-todos-action-btn {
+        font-size: 0.6em;
+        padding: 3px 6px;
+        width: 44px;
+        text-align: center;
+    }
+
+    /* Tags inline with text */
+    .fast-todos-tag {
+        order: 2;
     }
 }

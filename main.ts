@@ -442,12 +442,12 @@ class TaskEditModal extends Modal {
     textarea.oninput = (e) =>
       (this.result.description = (e.target as HTMLTextAreaElement).value);
 
-    new Setting(contentEl).setName("Due Date").addText((text) =>
+    new Setting(contentEl).setName("Due Date").addText((text) => {
+      text.inputEl.type = "date";
       text
-        .setPlaceholder("YYYY-MM-DD")
         .setValue(this.result.dueDate)
-        .onChange((value) => (this.result.dueDate = value)),
-    );
+        .onChange((value) => (this.result.dueDate = value));
+    });
 
     new Setting(contentEl)
       .setName("Completed Status")
@@ -615,7 +615,7 @@ class FastTodosRenderer extends MarkdownRenderChild {
     }
 
     const tasks = await this.getTasks();
-    this.itemElements = [];
+
 
     const loadingEl = this.containerEl.querySelector(".fast-todos-loading");
     if (loadingEl) loadingEl.remove();
@@ -668,6 +668,8 @@ class FastTodosRenderer extends MarkdownRenderChild {
 
     if (currentHash === this.lastRenderedHash) return;
     this.lastRenderedHash = currentHash;
+
+    this.itemElements = [];
 
     try {
       this.containerEl.empty();
@@ -1314,7 +1316,10 @@ class FastTodosRenderer extends MarkdownRenderChild {
     if (task.priority !== "normal") {
       const pClass = `fast-todos-priority-${task.priority}`;
       const pLabel = task.priority === "high" ? "HIGH" : "LOW";
-      contentEl.createSpan({
+      const wrapper = contentEl.createSpan({
+        cls: "fast-todos-priority-wrapper",
+      });
+      wrapper.createSpan({
         cls: `fast-todos-priority-badge ${pClass}`,
         text: pLabel,
       });
@@ -1384,7 +1389,8 @@ class FastTodosRenderer extends MarkdownRenderChild {
       file,
       taskId,
     );
-    this.setupDragAndDrop(item, task, file);
+    // Drag-and-drop disabled - user prefers swipe gestures only
+    // this.setupDragAndDrop(item, task, file);
 
     item.onclick = (e) => {
       // If we clicked on a button or checkbox, don't change selection here as they have their own handlers
