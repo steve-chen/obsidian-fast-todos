@@ -1292,7 +1292,8 @@ class FastTodosRenderer extends MarkdownRenderChild {
     if (task.completed) checkbox.setAttribute("checked", "checked");
     checkbox.setAttribute("data-status", task.status);
 
-    const textSpan = contentEl.createSpan({ cls: "fast-todos-text", text: "" });
+    const textWrapper = contentEl.createDiv({ cls: "fast-todos-text-wrapper" });
+    const textSpan = textWrapper.createSpan({ cls: "fast-todos-text", text: "" });
     if (task.completed) textSpan.addClass("fast-todos-completed");
 
     const parts = this.parseTextWithTags(task.cleanText);
@@ -1302,6 +1303,13 @@ class FastTodosRenderer extends MarkdownRenderChild {
       } else {
         textSpan.appendText(part.text);
       }
+    }
+
+    if (task.completed && task.completedDate) {
+      textWrapper.createSpan({
+        cls: "fast-todos-completion-stamp",
+        text: `[COMPLETED: ${task.completedDate}]`,
+      });
     }
 
     if (task.dueDate) {
@@ -1332,12 +1340,6 @@ class FastTodosRenderer extends MarkdownRenderChild {
     };
 
     const actionGroup = contentEl.createDiv({ cls: "fast-todos-actions" });
-    if (task.completed && task.completedDate) {
-      actionGroup.createSpan({
-        cls: "fast-todos-completed-date",
-        text: ` ✅ ${task.completedDate}`,
-      });
-    }
 
     const linkBtn = actionGroup.createSpan({
       cls: "fast-todos-action-btn",

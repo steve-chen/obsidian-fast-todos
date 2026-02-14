@@ -196,11 +196,16 @@ div[class*="block-language-todos"]:hover,
     font-weight: bold;
 }
 
+.fast-todos-text-wrapper {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
+    display: block;
+}
+
 .fast-todos-text {
     font-size: 0.95em;
     color: var(--text-normal);
-    flex: 1;
-    min-width: 0;
     overflow-wrap: break-word;
 }
 
@@ -548,7 +553,7 @@ div[class*="block-language-todos"]:hover,
     width: 100%;
 }
 
-.fast-todos-swipe-content .fast-todos-text {
+.fast-todos-swipe-content .fast-todos-text-wrapper {
     flex: 1;
     min-width: 0;
 }
@@ -593,7 +598,7 @@ div[class*="block-language-todos"]:hover,
     }
 
     /* Text takes remaining space on first row */
-    .fast-todos-text {
+    .fast-todos-text-wrapper {
         order: 2;
         flex: 1;
         min-width: 0;
