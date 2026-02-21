@@ -3,8 +3,12 @@
 .fast-todos-container,
 .markdown-rendered .block-language-todos,
 div[class*="block-language-todos"],
-.markdown-source-view.mod-cm6 .cm-content>.cm-embed-block:has(.fast-todos-container),
-.markdown-source-view.mod-cm6 .cm-content>.cm-embed-block:has(.block-language-todos),
+.markdown-source-view.mod-cm6
+    .cm-content
+    > .cm-embed-block:has(.fast-todos-container),
+.markdown-source-view.mod-cm6
+    .cm-content
+    > .cm-embed-block:has(.block-language-todos),
 .markdown-code-block-container:has(.fast-todos-container) {
     padding: 0 !important;
     margin-top: 4px !important;
@@ -207,6 +211,7 @@ div[class*="block-language-todos"]:hover,
     font-size: 0.95em;
     color: var(--text-normal);
     overflow-wrap: break-word;
+    flex: 1;
 }
 
 .fast-todos-tag {
@@ -306,6 +311,36 @@ div[class*="block-language-todos"]:hover,
     to {
         opacity: 1;
     }
+}
+
+.beauty-task-suggestion {
+    padding: 4px 8px;
+    font-weight: 500;
+}
+
+.fast-todos-backlink {
+    color: var(--text-muted);
+    font-size: 0.8em;
+    margin-left: 8px;
+}
+
+.fast-todos-link {
+    color: var(--interactive-accent) !important;
+    text-decoration: none !important;
+    cursor: pointer;
+    font-weight: 500;
+    opacity: 1 !important;
+    /* Force full brightness */
+}
+
+.fast-todos-link:hover {
+    text-decoration: underline !important;
+}
+
+.fast-todos-completed + .fast-todos-backlink .fast-todos-link {
+    color: var(--text-faint) !important;
+    opacity: 0.4 !important;
+    text-decoration: none !important;
 }
 
 .fast-todos-empty {
@@ -518,9 +553,11 @@ div[class*="block-language-todos"]:hover,
 }
 
 .fast-todos-swipe-bg.complete {
-    background: linear-gradient(to right,
-            var(--interactive-success, #4caf50) 0%,
-            transparent 60%);
+    background: linear-gradient(
+        to right,
+        var(--interactive-success, #4caf50) 0%,
+        transparent 60%
+    );
     color: white;
     justify-content: flex-start;
 }
@@ -530,9 +567,11 @@ div[class*="block-language-todos"]:hover,
 }
 
 .fast-todos-swipe-bg.edit {
-    background: linear-gradient(to left,
-            var(--interactive-accent, #7c3aed) 0%,
-            transparent 60%);
+    background: linear-gradient(
+        to left,
+        var(--interactive-accent, #7c3aed) 0%,
+        transparent 60%
+    );
     color: white;
     justify-content: flex-end;
 }
