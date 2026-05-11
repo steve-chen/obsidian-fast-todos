@@ -442,6 +442,24 @@ class TaskEditModal extends Modal {
     textarea.oninput = (e) =>
       (this.result.description = (e.target as HTMLTextAreaElement).value);
 
+    // Make the whole description container tappable to focus the textarea
+    descContainer.addEventListener("click", (e) => {
+      if (e.target !== textarea) {
+        textarea.focus();
+      }
+    });
+    descContainer.addEventListener("touchend", (e) => {
+      if (e.target !== textarea) {
+        e.preventDefault();
+        textarea.focus();
+      }
+    }, { passive: false });
+
+    // Auto-focus textarea when modal opens (with delay for mobile)
+    setTimeout(() => {
+      textarea.focus();
+    }, 50);
+
     new Setting(contentEl).setName("Due Date").addText((text) => {
       text.inputEl.type = "date";
       text
@@ -1333,6 +1351,12 @@ class FastTodosRenderer extends MarkdownRenderChild {
       });
     }
 
+    // Tap task text to edit (mobile-friendly)
+    textWrapper.onclick = (e) => {
+      e.stopPropagation();
+      handleEditClick();
+    };
+
     checkbox.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -1391,6 +1415,7 @@ class FastTodosRenderer extends MarkdownRenderChild {
       file,
       taskId,
     );
+    this.setupLongPress(item, task, file, taskId);
     // Drag-and-drop disabled - user prefers swipe gestures only
     // this.setupDragAndDrop(item, task, file);
 
@@ -1602,6 +1627,302 @@ class FastTodosRenderer extends MarkdownRenderChild {
     item.addEventListener("touchmove", onTouchMove, { passive: false });
     item.addEventListener("touchend", onTouchEnd, { passive: true });
     item.addEventListener("touchcancel", onTouchEnd, { passive: true });
+  }
+
+  private setupLongPress(
+    item: HTMLElement,
+    task: FastTask,
+    file: TFile,
+    taskId: string,
+  ) {
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let timer: number | null = null;
+    const LONG_PRESS_DURATION = 500;
+    const MOVE_THRESHOLD = 10;
+
+    const isInteractive = (target: HTMLElement) => {
+      return (
+        target.closest(".fast-todos-checkbox") ||
+        target.closest(".fast-todos-actions") ||
+        target.closest(".fast-todos-action-btn")
+      );
+    };
+
+    const startPress = (e: TouchEvent | MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (isInteractive(target)) return;
+
+      let clientX: number;
+      let clientY: number;
+      if ("touches" in e) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      startX = clientX;
+      startY = clientY;
+      startTime = Date.now();
+
+      timer = window.setTimeout(() => {
+        item.addClass("fast-todos-pressing");
+      }, 150);
+    };
+
+    const movePress = (e: TouchEvent | MouseEvent) => {
+      if (startTime === 0) return;
+      let clientX: number;
+      let clientY: number;
+      if ("touches" in e) {
+        if (e.touches.length === 0) return;
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      if (
+        Math.abs(clientX - startX) > MOVE_THRESHOLD ||
+        Math.abs(clientY - startY) > MOVE_THRESHOLD
+      ) {
+        cancelPress();
+      }
+    };
+
+    const endPress = (e: TouchEvent | MouseEvent) => {
+      if (startTime === 0) return;
+      const duration = Date.now() - startTime;
+      item.removeClass("fast-todos-pressing");
+
+      if (duration >= LONG_PRESS_DURATION) {
+        // Suppress the upcoming synthetic click event
+        const suppressClick = (ce: MouseEvent) => {
+          ce.stopPropagation();
+          ce.preventDefault();
+          item.removeEventListener("click", suppressClick, true);
+        };
+        item.addEventListener("click", suppressClick, true);
+        setTimeout(() => {
+          item.removeEventListener("click", suppressClick, true);
+        }, 100);
+
+        this.showQuickActions(task, file, taskId, item);
+      }
+
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      startTime = 0;
+    };
+
+    const cancelPress = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      item.removeClass("fast-todos-pressing");
+      startTime = 0;
+    };
+
+    item.addEventListener("touchstart", startPress, { passive: true });
+    item.addEventListener("touchmove", movePress, { passive: true });
+    item.addEventListener("touchend", endPress, { passive: true });
+    item.addEventListener("touchcancel", cancelPress, { passive: true });
+
+    item.addEventListener("mousedown", startPress);
+    item.addEventListener("mousemove", movePress);
+    item.addEventListener("mouseup", endPress);
+    item.addEventListener("mouseleave", cancelPress);
+
+    item.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
+  }
+
+  private showQuickActions(
+    task: FastTask,
+    file: TFile,
+    taskId: string,
+    item: HTMLElement,
+  ) {
+    // Remove any existing sheet
+    document.querySelector(".fast-todos-sheet-overlay")?.remove();
+    document.querySelector(".fast-todos-sheet")?.remove();
+
+    const overlay = document.body.createDiv({
+      cls: "fast-todos-sheet-overlay",
+    });
+    const sheet = document.body.createDiv({ cls: "fast-todos-sheet" });
+
+    const titleText =
+      task.cleanText.substring(0, 60) +
+      (task.cleanText.length > 60 ? "..." : "");
+    sheet.createDiv({ cls: "fast-todos-sheet-title", text: titleText });
+
+    let closeSheet: () => void = () => {};
+
+    const actions = [
+      {
+        icon: task.completed ? "↩️" : "✅",
+        label: task.completed ? "Mark Not Done" : "Mark Done",
+        action: () => this.cycleTaskStatus(task, file, item),
+      },
+      {
+        icon: "🚩",
+        label:
+          task.priority === "high"
+            ? "Set Priority: Normal"
+            : task.priority === "normal"
+              ? "Set Priority: Low"
+              : "Set Priority: High",
+        action: () => this.cycleTaskPriority(task, file, taskId, item),
+      },
+      {
+        icon: "📅",
+        label: task.dueDate
+          ? `Defer +1 Day (${moment(task.dueDate).add(1, "days").format("MMM D")})`
+          : "Set Due: Tomorrow",
+        action: () => this.deferTaskDueDate(task, file, taskId, item, 1),
+      },
+      {
+        icon: "📆",
+        label: task.dueDate
+          ? `Defer +1 Week (${moment(task.dueDate).add(7, "days").format("MMM D")})`
+          : "Set Due: Next Week",
+        action: () => this.deferTaskDueDate(task, file, taskId, item, 7),
+      },
+      {
+        icon: "✏️",
+        label: "Full Edit...",
+        action: () => {
+          new TaskEditModal(
+            this.app,
+            task,
+            async (result: {
+              description: string;
+              completed: boolean;
+              priority: "high" | "normal" | "low";
+              dueDate?: string;
+            }) => {
+              const cached = FastTodosRenderer.taskCache.find(
+                (t) => `${t.path}:${t.line}` === taskId,
+              );
+              if (cached) {
+                cached.completed = result.completed;
+                cached.cleanText = result.description;
+                cached.priority = result.priority;
+                cached.dueDate = result.dueDate;
+              }
+              await this.updateTask(file, task, result);
+              (this.app.workspace as any).trigger("fast-todos:refresh-all");
+            },
+          ).open();
+        },
+      },
+    ];
+
+    for (const a of actions) {
+      const btn = sheet.createDiv({ cls: "fast-todos-sheet-action" });
+      btn.createSpan({ text: `${a.icon} ${a.label}` });
+      btn.addEventListener("click", () => {
+        closeSheet();
+        a.action();
+      });
+    }
+
+    const cancelBtn = sheet.createDiv({
+      cls: "fast-todos-sheet-cancel",
+      text: "Cancel",
+    });
+    cancelBtn.addEventListener("click", closeSheet);
+    overlay.addEventListener("click", closeSheet);
+
+    closeSheet = () => {
+      overlay.removeClass("active");
+      sheet.removeClass("active");
+      setTimeout(() => {
+        overlay.remove();
+        sheet.remove();
+      }, 250);
+    };
+
+    requestAnimationFrame(() => {
+      overlay.addClass("active");
+      sheet.addClass("active");
+    });
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        closeSheet();
+        document.removeEventListener("keydown", onKey);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+  }
+
+  private async cycleTaskPriority(
+    task: FastTask,
+    file: TFile,
+    taskId: string,
+    item: HTMLElement,
+  ) {
+    const cycle: Record<string, "high" | "normal" | "low"> = {
+      high: "normal",
+      normal: "low",
+      low: "high",
+    };
+    const newPriority = cycle[task.priority] || "normal";
+    task.priority = newPriority;
+
+    const cached = FastTodosRenderer.taskCache.find(
+      (t) => `${t.path}:${t.line}` === taskId,
+    );
+    if (cached) cached.priority = newPriority;
+
+    await this.updateTask(file, task, {
+      description: task.cleanText,
+      completed: task.completed,
+      priority: newPriority,
+      dueDate: task.dueDate,
+    });
+
+    this.lastRenderedHash = "";
+    FastTodosRenderer.clearCache();
+    this.render();
+  }
+
+  private async deferTaskDueDate(
+    task: FastTask,
+    file: TFile,
+    taskId: string,
+    item: HTMLElement,
+    days: number,
+  ) {
+    const currentDue = task.dueDate ? moment(task.dueDate) : moment();
+    const newDue = currentDue.add(days, "days").format("YYYY-MM-DD");
+    task.dueDate = newDue;
+
+    const cached = FastTodosRenderer.taskCache.find(
+      (t) => `${t.path}:${t.line}` === taskId,
+    );
+    if (cached) cached.dueDate = newDue;
+
+    await this.updateTask(file, task, {
+      description: task.cleanText,
+      completed: task.completed,
+      priority: task.priority,
+      dueDate: newDue,
+    });
+
+    this.lastRenderedHash = "";
+    FastTodosRenderer.clearCache();
+    this.render();
   }
 
   private triggerHaptic() {

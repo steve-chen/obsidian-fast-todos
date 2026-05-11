@@ -601,6 +601,67 @@ div[class*="block-language-todos"]:hover,
     transition: none;
 }
 
+/* Mobile Edit Modal - Bottom Sheet */
+@media (max-width: 600px) {
+    .fast-todos-modal {
+        align-items: flex-end !important;
+        padding-bottom: env(safe-area-inset-bottom) !important;
+    }
+
+    .fast-todos-modal .modal {
+        margin: 0 !important;
+        border-radius: 16px 16px 0 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        max-height: 85vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        animation: fast-sheet-slide-up 0.25s ease-out;
+    }
+
+    @keyframes fast-sheet-slide-up {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+
+    /* Drag handle */
+    .fast-todos-modal .modal::before {
+        content: "";
+        display: block;
+        width: 40px;
+        height: 5px;
+        background: var(--background-modifier-border);
+        border-radius: 3px;
+        margin: 8px auto 0;
+        flex-shrink: 0;
+    }
+
+    .fast-todos-modal .modal-content {
+        overflow-y: auto;
+        flex: 1;
+        padding: 16px;
+    }
+
+    .fast-todos-modal .fast-modal-description textarea {
+        min-height: 140px;
+        font-size: 1.15em;
+    }
+
+    .fast-todos-modal h2 {
+        font-size: 1.2em;
+        margin-bottom: 16px;
+    }
+
+    .fast-todos-modal .setting-item {
+        padding: 12px 0;
+    }
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .fast-todos-header-content {
@@ -616,11 +677,11 @@ div[class*="block-language-todos"]:hover,
     /* Mobile: Stack task content vertically */
     .fast-todos-item {
         flex-wrap: wrap;
-        padding: 6px 0 6px 6px;
+        padding: 10px 0 10px 10px;
         /* No right padding */
         position: relative;
         margin-right: 0;
-        min-height: 50px;
+        min-height: 60px;
         /* Prevent button overlap on short tasks */
     }
 
@@ -634,6 +695,12 @@ div[class*="block-language-todos"]:hover,
     .fast-todos-checkbox {
         order: 1;
         flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+    }
+
+    .fast-todos-checkbox:checked::after {
+        font-size: 14px;
     }
 
     /* Text takes remaining space on first row */
@@ -698,14 +765,113 @@ div[class*="block-language-todos"]:hover,
     }
 
     .fast-todos-action-btn {
-        font-size: 0.6em;
-        padding: 3px 6px;
-        width: 44px;
+        font-size: 0.7em;
+        padding: 10px 4px;
+        width: 48px;
+        min-height: 44px;
         text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     /* Tags inline with text */
     .fast-todos-tag {
         order: 2;
     }
+}
+
+/* Long-press visual feedback */
+.fast-todos-pressing {
+    background-color: var(--background-modifier-hover) !important;
+    transition: background-color 0.1s ease;
+}
+
+/* Bottom Sheet Overlay */
+.fast-todos-sheet-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.fast-todos-sheet-overlay.active {
+    opacity: 1;
+}
+
+/* Bottom Sheet */
+.fast-todos-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--background-primary);
+    border-radius: 16px 16px 0 0;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    z-index: 1000;
+    transform: translateY(100%);
+    transition: transform 0.25s ease-out;
+    max-width: 600px;
+    margin: 0 auto;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.fast-todos-sheet.active {
+    transform: translateY(0);
+}
+
+.fast-todos-sheet-title {
+    font-weight: 600;
+    font-size: 1em;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    color: var(--text-normal);
+    line-height: 1.3;
+}
+
+.fast-todos-sheet-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1em;
+    color: var(--text-normal);
+    transition: background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.fast-todos-sheet-action:hover,
+.fast-todos-sheet-action:active {
+    background-color: var(--background-modifier-hover);
+}
+
+.fast-todos-sheet-cancel {
+    margin-top: 12px;
+    text-align: center;
+    padding: 14px;
+    font-weight: 600;
+    color: var(--text-accent);
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.fast-todos-sheet-cancel:hover,
+.fast-todos-sheet-cancel:active {
+    background-color: var(--background-modifier-hover);
 }
