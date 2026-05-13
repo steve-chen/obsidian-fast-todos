@@ -2,6 +2,7 @@ import {
   App,
   MarkdownRenderChild,
   Plugin,
+  Platform,
   TFile,
   moment,
   Editor,
@@ -1379,10 +1380,6 @@ class FastTodosRenderer extends MarkdownRenderChild {
     linkBtn.onclick = handleLinkClick;
     linkBtn.addEventListener("touchend", handleLinkClick, { passive: false });
 
-    const editBtn = actionGroup.createSpan({
-      cls: "fast-todos-action-btn",
-      text: "EDIT",
-    });
     const handleEditClick = (e?: Event) => {
       if (e) {
         e.preventDefault();
@@ -1403,8 +1400,15 @@ class FastTodosRenderer extends MarkdownRenderChild {
         (this.app.workspace as any).trigger("fast-todos:refresh-all");
       }).open();
     };
-    editBtn.onclick = handleEditClick;
-    editBtn.addEventListener("touchend", handleEditClick, { passive: false });
+
+    if (!Platform.isMobile) {
+      const editBtn = actionGroup.createSpan({
+        cls: "fast-todos-action-btn",
+        text: "EDIT",
+      });
+      editBtn.onclick = handleEditClick;
+      editBtn.addEventListener("touchend", handleEditClick, { passive: false });
+    }
 
     this.setupSwipeGestures(
       item,
